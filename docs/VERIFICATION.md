@@ -29,3 +29,7 @@ A browser acceptance pass can verify that the first specimen renders, 3D rotatio
 ## 1.2.0 release checks
 
 The production build and all 17 Vitest tests passed. The tests cover the two new body profiles, reproducibility of earlier references, separation between shoal depths, movement ranges for aquarium residents, preset population changes, and pause and resume.
+
+The Aquarium screen was checked through the hosted WebGL capture. DOM emulation exercised preset switching, the pause control, selecting a resident to open the Laboratory, and archive initialization. The local browser preview relay timed out, so interaction and performance on physical iPhone hardware remain unverified.
+
+[Living Aquarium screenshot](../public/downloads/living-aquarium.jpg)

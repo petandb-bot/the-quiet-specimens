@@ -4,6 +4,8 @@
 
 架空の水生生物を生成し、泳ぎを観察し、個体固有の電子音を聴いて集める実験室です。3つの身体構造と21体の参照個体から始められます。UIは英語です。
 
+![Living Aquarium の混泳水槽](public/downloads/living-aquarium.jpg)
+
 ## 起動
 
 Node.js 22.12 以上と npm を使用します。テストとビルドは Node.js 24 で実行できます。
