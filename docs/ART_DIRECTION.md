@@ -13,3 +13,8 @@ Thumbnails use the actual production renderer and are captured on demand from a 
 Lagoon follows a small wild fish with a forked tail and lateral stripe. Halo suspends a curved crown and fine streamers around a long profile. Machine layers nine shell sections and mounts paired fins on a narrower internal shaft. Cosmic loops bony arches below the body to frame an open cavity. Round brings prominent eyes and short paddles to a deep, compact body. Blade pulls a tapered head, wing edges, and swept fins into long points.
 
 The profiles apply to live geometry, including newly generated fish. The camera centers each form by its bounds, preserving differences in length and height.
+
+
+## Living Aquarium
+
+Guppies have pale blue bodies and fan tails and swim in the upper part of the water column. The warm goldfish have rounder bodies and turn through a lower circuit. The Surface Mayor has a long body, an upturned jaw, and thin barbels at the waterline. The Clinging Clerk balances upright with a curled tail and repeatedly corrects its height. The Floor Manager barely leaves the sediment. The camera keeps the size difference and all three depths visible.

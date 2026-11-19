@@ -8,7 +8,7 @@ import { featured, references } from '../src/presets/reference';
 
 function checkGeometry(model: ReturnType<typeof buildCreature>) {
   const size = new Box3().setFromObject(model.group).getSize(new Vector3());
-  expect(Math.max(size.x, size.z)).toBeGreaterThan(1.5);
+  expect(Math.max(size.x, size.y, size.z)).toBeGreaterThan(1.5);
   expect(size.y).toBeGreaterThan(.25);
   model.group.traverse(child => {
     if (!(child instanceof Mesh || child instanceof Line)) return;
@@ -34,7 +34,7 @@ describe('Mesh construction', () => {
       }
     }
   });
-  it('keeps all six forms well defined across seeds and visually distinct in their reference proportions', () => {
+  it('keeps all eight forms well defined across seeds and visually distinct in their reference proportions', () => {
     for (const fishForm of fishForms) {
       for (let seed = 0; seed < 8; seed++) {
         const genome = generate(fishForm + seed, 'Discover');
@@ -48,6 +48,10 @@ describe('Mesh construction', () => {
     expect(round.y / round.x).toBeGreaterThan(.70);
     expect(blade.y / blade.x).toBeLessThan(.48);
     expect(round.y / round.x).toBeGreaterThan(blade.y / blade.x * 2);
+    const seahorse = sizes.get('seahorse')!;
+    const arowana = sizes.get('arowana')!;
+    expect(seahorse.y / seahorse.x).toBeGreaterThan(1.6);
+    expect(arowana.y / arowana.x).toBeLessThan(.35);
   });
 });
 

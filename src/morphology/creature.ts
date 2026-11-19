@@ -4,6 +4,7 @@ import type { Material, Morphology, Plan, Specimen } from '../core/model';
 import { clamp, mix, random } from '../core/random';
 import { filament, fin, patch, pearl, vector } from './mesh';
 import { buildFishForm } from './fishForms';
+import { buildSeahorse } from './seahorse';
 
 const tau = Math.PI * 2;
 const white = new T.Color('#fff4d7');
@@ -11,8 +12,8 @@ type Motion = { time: { value: number }; effort: { value: number }; display: { v
 type Builder = (group: T.Group, m: Morphology, surface: Surface, seed: string, low: boolean) => void;
 export type Surface = ReturnType<typeof surfaces>;
 
-function animate<M extends T.Material>(material: M, plan: Plan, motion: Motion, rigidity = 1) {
-  const mode = { FISH: 0, RAY: 1, JELLY: 2 }[plan];
+function animate<M extends T.Material>(material: M, plan: Plan | 'SEAHORSE', motion: Motion, rigidity = 1) {
+  const mode = { FISH: 0, RAY: 1, JELLY: 2, SEAHORSE: 3 }[plan];
   material.customProgramCacheKey = () => `specimen-${mode}-${rigidity}`;
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, {
@@ -31,6 +32,10 @@ function animate<M extends T.Material>(material: M, plan: Plan, motion: Motion, 
         float wing = abs(position.z);
         transformed.y += sin(w * 1.9 - wing * 1.1 + position.x * 0.5) * wing * motion * 0.24;
         transformed.z *= 1.0 + finDisplay * 0.14;
+      #elif ${mode} == 3
+        float tail = smoothstep(0.0, 2.1, -position.y);
+        transformed.z += sin(w * 2.8 + position.y * 2.7) * tail * motion * 0.22;
+        transformed.x += sin(w * 8.0) * clamp(-position.x - 0.25, 0.0, 0.75) * 0.06;
       #else
         float pulse = sin(w * 2.2 - max(0.0, -position.y) * 0.86);
         float swell = 1.0 + pulse * 0.075 * motion + finDisplay * 0.10;
@@ -51,6 +56,7 @@ const familyOptions: Record<Material, T.MeshPhysicalMaterialParameters> = {
 };
 
 function surfaces(m: Morphology, motion: Motion) {
+  const motionPlan = m.fishForm === 'seahorse' ? 'SEAHORSE' : m.plan;
   const [body, shadow, light] = m.palette.map(c => new T.Color(c));
   const dark = shadow.clone().lerp(body, .22);
   const make = (material: Material, membrane = false) => {
@@ -62,13 +68,13 @@ function surfaces(m: Morphology, motion: Motion) {
       envMapIntensity: .75 + m.reflectivity * .95,
       transparent, opacity: membrane ? .47 + .22 * (1 - m.transparency) : transparent ? .40 + .39 * (1 - m.transparency) : 1,
       depthWrite: !transparent, forceSinglePass: membrane, emissive: light, emissiveIntensity: membrane ? .08 : .014 + m.emission * .019,
-    }), m.plan, motion);
+    }), motionPlan, motion);
   };
   const bodyMat = make(m.material);
   const membrane = make(m.accentMaterial, true);
-  const trim = animate(new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: .63, depthWrite: false, toneMapped: false }), m.plan, motion);
-  const seam = animate(new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: .30, depthWrite: false, toneMapped: false }), m.plan, motion);
-  const jewel = animate(new T.MeshStandardMaterial({ color: light, emissive: light, emissiveIntensity: .27 + m.emission * .75, roughness: .33, metalness: .16 }), m.plan, motion);
+  const trim = animate(new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: .63, depthWrite: false, toneMapped: false }), motionPlan, motion);
+  const seam = animate(new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: .30, depthWrite: false, toneMapped: false }), motionPlan, motion);
+  const jewel = animate(new T.MeshStandardMaterial({ color: light, emissive: light, emissiveIntensity: .27 + m.emission * .75, roughness: .33, metalness: .16 }), motionPlan, motion);
   const black = new T.MeshStandardMaterial({ color: '#09151a', metalness: .3, roughness: .2 });
   const vein = light.clone().lerp(white, .13);
   const skin = (u: number, v: number) => {
@@ -308,8 +314,12 @@ export function buildCreature(specimen: Specimen, low = false) {
   const m = specimen.genome.morphology;
   const motion: Motion = { time: { value: 0 }, effort: { value: .55 }, display: { value: 0 }, rhythm: { value: specimen.genome.behavior.rhythm } };
   const surface = surfaces(m, motion);
-  if (m.plan === 'FISH' && m.fishForm) buildFishForm(group, m, surface, m.fishForm, low);
-  else builders[m.plan](group, m, surface, m.formSeed, low);
+  if (m.plan === 'FISH' && m.fishForm) {
+    if (m.fishForm === 'seahorse') buildSeahorse(group, m, surface, low);
+    else buildFishForm(group, m, surface, m.fishForm, low);
+  } else {
+    builders[m.plan](group, m, surface, m.formSeed, low);
+  }
   batchAccents(group);
   const materials = [surface.bodyMat, surface.membrane, surface.trim, surface.seam, surface.jewel, surface.black];
   return { group, motion, dispose: () => {

@@ -1,4 +1,4 @@
-import { actions, actionLabels, discoveryOptions, fishFormLabels, generatorVersion, legacyGeneratorVersion, mutationModes } from '../core/model';
+import { actions, actionLabels, discoveryOptions, fishFormLabels, generatorVersion, generatorVersions, mutationModes } from '../core/model';
 import type { Generator, Specimen } from '../core/model';
 import { icon } from './icons';
 const mark = import.meta.env.BASE_URL + 'mark.svg';
@@ -8,17 +8,26 @@ export function layout(featured: readonly Specimen[]) {
     <a class="skip" href="#laboratory">Skip to the laboratory</a>
     <header class="site-header">
       <div class="header-wrap">
-        <a class="wordmark" href="#laboratory" aria-label="The Quiet Specimens home">
+        <a class="wordmark" href="#aquarium" aria-label="The Quiet Specimens home">
           <img src="${mark}" alt="" width="38" height="38">
           <span>The Quiet<br>Specimens</span>
         </a>
         <nav aria-label="Primary">
+          <a class="nav-link" href="#aquarium" id="aquarium-nav">${icon('aquarium')} Aquarium</a>
           <a class="nav-link is-active" href="#laboratory" id="lab-nav">${icon('chamber')} Laboratory</a>
           <a class="nav-link" href="#archive" id="archive-nav">${icon('grid')} Archive</a>
         </nav>
       </div>
     </header>
     <main class="page">
+      <section class="intro tank-intro" id="aquarium" aria-labelledby="aquarium-title" hidden>
+        <div class="intro-copy">
+          <div class="intro-line"><span></span> LIVE HABITAT</div>
+          <h1 id="aquarium-title">Living Aquarium</h1>
+          <p>Watch small shoals, solitary swimmers, and a fish in no particular hurry.</p>
+        </div>
+        <button class="button small tank-pause" type="button" id="tank-pause" aria-pressed="false">${icon('pause')} Pause motion</button>
+      </section>
       <section class="intro" id="laboratory" aria-labelledby="title">
         <div class="intro-copy"><div class="intro-line"><span></span> PHASE 01 <span class="intro-divider"></span> SPECIMEN LAB</div>
         <h1 id="title">Specimen Laboratory</h1>
@@ -26,7 +35,15 @@ export function layout(featured: readonly Specimen[]) {
         <button class="button small new-button" type="button" id="new-specimen">${icon('plus')} New specimen</button>
       </section>
       <div class="workspace">
-        <section class="observation" aria-label="Observation chamber">
+        <section class="observation" id="observation" aria-label="Observation chamber">
+          <div class="form-strip tank-strip" id="tank-strip" hidden>
+            <span id="tank-scene-label">Aquarium scene</span>
+            <div class="form-buttons" role="group" aria-labelledby="tank-scene-label">
+              <button type="button" data-tank-preset="mixed" aria-pressed="true">Mixed waters</button>
+              <button type="button" data-tank-preset="guppies" aria-pressed="false">Guppy shoal</button>
+              <button type="button" data-tank-preset="goldfish" aria-pressed="false">Goldfish shoal</button>
+            </div>
+          </div>
           <div class="form-strip" id="form-strip" role="group" aria-labelledby="form-label">
             <span id="form-label">Reference forms</span>
             <div class="form-buttons">${featured.map(specimen => {
@@ -51,6 +68,7 @@ export function layout(featured: readonly Specimen[]) {
             </div>
             <div class="stage-footer">
               <span id="stage-id">QS</span>
+              <span id="tank-stage-meta" hidden>Surface · Midwater · Bottom</span>
               <span class="stage-action"><i></i><span id="swim-state">Cruise</span></span>
             </div>
             <button class="stage-button exit-view" id="exit-view" type="button">${icon('close')} Exit view</button>
@@ -62,6 +80,14 @@ export function layout(featured: readonly Specimen[]) {
               <button type="button" data-mode="action" aria-pressed="false">${icon('action')} Action</button>
             </div>
             <span id="mode-hint" class="mode-hint">Tap the specimen to interact</span>
+          </div>
+          <div class="tank-residents" id="tank-residents" hidden>
+            <div class="tank-byline" id="tank-description">Two shoals pass the surface cruiser and the seahorse.</div>
+            <div class="tank-resident-links" aria-label="Inspect aquarium residents">
+              <button data-resident="arowana" type="button">Surface Mayor</button>
+              <button data-resident="seahorse" type="button">Clinging Clerk</button>
+              <button data-resident="floor" type="button">Floor Manager</button>
+            </div>
           </div>
           <div class="action-bar" hidden id="action-bar">
             <label for="action-choice">Action</label>
@@ -148,11 +174,12 @@ export function discoverForm(choices: readonly string[], version: Generator = ge
       ${discoveryOptions.map((options, i) => `<label>${['Where?', 'When?', 'Trace?'][i]}<select name="choice${i}">${options.map(option => `<option${option === choices[i] ? ' selected' : ''}>${option}</option>`).join('')}</select></label>`).join('')}
     </div>
     <label class="seed-field">Seed <span>Optional</span><input name="seed" class="mono" maxlength="32" autocomplete="off" spellcheck="false" placeholder="Leave blank for a new seed"></label>
-    <details class="generator-options"${version === legacyGeneratorVersion ? ' open' : ''}>
+    <details class="generator-options"${version !== generatorVersion ? ' open' : ''}>
       <summary>Generator version</summary>
       <label><span class="skip-label">Generator version</span><select name="generator">
-        <option value="${generatorVersion}">${generatorVersion} · Expanded fish forms</option>
-        <option value="${legacyGeneratorVersion}"${version === legacyGeneratorVersion ? ' selected' : ''}>${legacyGeneratorVersion} · Original specimens</option>
+        ${generatorVersions.map((item, i) =>
+          `<option value="${item}"${item === version ? ' selected' : ''}>${item} · ${['Aquarium forms', 'Expanded fish forms', 'Original specimens'][i]}</option>`,
+        ).join('')}
       </select></label>
     </details>
     <p class="field-note">Use the same choices, seed, and generator version to recreate a specimen.</p>

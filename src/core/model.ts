@@ -7,14 +7,18 @@ export const origins = ['Reference', 'Discover', 'Extract', 'Mutate'] as const;
 export const mutationModes = ['Subtle', 'Strange', 'Anomaly'] as const;
 export const schemaVersion = 1;
 export const legacyGeneratorVersion = '1.0.0';
-export const generatorVersion = '1.1.0';
-export const fishForms = ['lagoon', 'halo', 'machine', 'cosmic', 'round', 'blade'] as const;
+export const formsGeneratorVersion = '1.1.0';
+export const generatorVersion = '1.2.0';
+export const generatorVersions = [generatorVersion, formsGeneratorVersion, legacyGeneratorVersion] as const;
+export const originalFishForms = ['lagoon', 'halo', 'machine', 'cosmic', 'round', 'blade'] as const;
+export const fishForms = [...originalFishForms, 'arowana', 'seahorse'] as const;
 export const fishFormLabels: Record<typeof fishForms[number], string> = {
   lagoon: 'Lagoon', halo: 'Halo', machine: 'Machine', cosmic: 'Cosmic', round: 'Round', blade: 'Blade',
+  arowana: 'Arowana', seahorse: 'Seahorse',
 };
 
 export type FishForm = typeof fishForms[number];
-export type Generator = typeof generatorVersion | typeof legacyGeneratorVersion;
+export type Generator = typeof generatorVersions[number];
 export type Plan = typeof plans[number];
 export type Material = typeof materials[number];
 export type Engine = typeof engines[number];

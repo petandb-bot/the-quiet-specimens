@@ -1,5 +1,5 @@
 import {
-  actions, discoveryOptions, engines, fishForms, generatorVersion, materials, patterns, plans, schemaVersion,
+  actions, discoveryOptions, engines, fishForms, generatorVersion, legacyGeneratorVersion, materials, originalFishForms, patterns, plans, schemaVersion,
 } from '../core/model';
 import type { Choices, FishForm, Generator, Genome, Morphology, Mutation, Palette, Personality, Sonotype, Specimen } from '../core/model';
 import { clamp, hashText, hexSeed, mix, random } from '../core/random';
@@ -76,10 +76,10 @@ export function generate(
     eye: m.range(.16, .84), emission: image ? mix(m.next(), 1 - image.brightness, .48) : m.range(.18, .9),
     anomalous: false,
   };
-  if (plan === 'FISH' && version === generatorVersion) {
+  if (plan === 'FISH' && version !== legacyGeneratorVersion) {
     const shape = random(key + '/shape');
     const regional: FishForm[] = ['halo', 'cosmic', 'machine', 'blade', 'lagoon'];
-    morphology.fishForm = where >= 0 && shape.next() < .38 ? regional[where] : shape.pick(fishForms);
+    morphology.fishForm = where >= 0 && shape.next() < .38 ? regional[where] : shape.pick(version === generatorVersion ? fishForms : originalFishForms);
   }
   const behavior: Personality = {
     speed: b.range(.48, 1.15) * (plan === 'JELLY' ? .74 : 1),

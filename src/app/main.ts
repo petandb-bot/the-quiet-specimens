@@ -1,13 +1,15 @@
+import { aquariumPresets } from '../aquarium/motion';
+import type { AquariumPreset } from '../aquarium/motion';
 import { Archive } from '../archive/database';
 import { deserialize, serialize } from '../archive/records';
 import { ChamberSound } from '../audio/scheduler';
 import type { MotionState } from '../behavior/swim';
-import { actionLabels, defaultChoices, fishFormLabels, generatorVersion, legacyGeneratorVersion, mutationModes } from '../core/model';
+import { actionLabels, defaultChoices, fishFormLabels, generatorVersion, generatorVersions, mutationModes } from '../core/model';
 import type { Action, Choices, Generator, Mutation, Specimen } from '../core/model';
 import { freshSeed } from '../core/random';
 import { generate, mutate, specimen } from '../genesis/genome';
 import { analyzeImage } from '../genesis/image';
-import { featured, references } from '../presets/reference';
+import { featured, floorManager, references } from '../presets/reference';
 import { LabView } from '../renderer/view';
 import type { ViewMode } from '../renderer/view';
 import { icon } from '../ui/icons';
@@ -44,6 +46,9 @@ let result: { previous: Specimen; retry?: () => void } | undefined;
 let photoJob = 0;
 let photoWaiting = false;
 let loadedArchive = false;
+let aquariumActive = false;
+let aquariumPaused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let aquariumPreset: AquariumPreset = 'mixed';
 
 const audio = new ChamberSound((enabled, audition) => {
   if (enabled !== soundOn) {
@@ -76,7 +81,7 @@ function graphicsError(message: string) {
   set('graphics-error', message);
   get('graphics-error').hidden = !message;
   const live = document.querySelector('.stage-live span');
-  if (live) live.textContent = message ? 'GRAPHICS PAUSED' : 'LIVE OBSERVATION';
+  if (live) live.textContent = message ? 'GRAPHICS PAUSED' : aquariumActive ? (aquariumPaused ? 'MOTION PAUSED' : 'LIVE AQUARIUM') : 'LIVE OBSERVATION';
 }
 
 function swimState(state: MotionState) {
@@ -123,7 +128,7 @@ function viewing(enabled: boolean) {
     setMode(oldMode);
     get('view-mode').focus({ preventScroll: true });
   }
-  for (const selector of ['.site-header', '.intro', '.record', '.form-strip', '.mode-bar', '.action-bar', '.result-bar', '.discovery', '.archive', '.site-footer']) {
+  for (const selector of ['.site-header', '#aquarium', '#laboratory', '.record', '#form-strip', '#tank-strip', '#tank-residents', '.mode-bar', '.action-bar', '.result-bar', '.discovery', '.archive', '.site-footer']) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element && !element.contains(page)) element.inert = enabled;
   }
@@ -161,7 +166,7 @@ function updateSaveButton() {
 }
 
 function updateResult(message?: string) {
-  get('result-bar').hidden = !result;
+  get('result-bar').hidden = aquariumActive || !result;
   get('retry').hidden = !result?.retry;
   if (message) set('result-text', message);
 }
@@ -225,7 +230,9 @@ function discover(choices: Choices, seed?: string, version: Generator = generato
 click('new-specimen', () => discover(lastChoices));
 click('discover', () => {
   const previous = current.genome.origin === 'Discover' ? current.genome.choices : undefined;
-  const version = previous && current.genome.generatorVersion === legacyGeneratorVersion ? legacyGeneratorVersion : generatorVersion;
+  const version = previous
+    ? generatorVersions.find(item => item === current.genome.generatorVersion) ?? generatorVersion
+    : generatorVersion;
   openDialog('Discover a specimen', discoverForm(previous ?? lastChoices, version));
   get('discover-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -233,7 +240,8 @@ click('discover', () => {
     const choices = [0, 1, 2].map(i => String(data.get('choice' + i))) as Choices;
     const seed = String(data.get('seed') ?? '').normalize().trim();
     dialog.close();
-    discover(choices, seed, data.get('generator') === legacyGeneratorVersion ? legacyGeneratorVersion : generatorVersion);
+    const version = generatorVersions.find(item => item === data.get('generator')) ?? generatorVersion;
+    discover(choices, seed, version);
   });
 });
 
@@ -404,8 +412,8 @@ click('export', () => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
-function nav(section: 'archive' | 'lab') {
-  for (const id of ['archive-nav', 'lab-nav']) {
+function nav(section: 'archive' | 'lab' | 'aquarium') {
+  for (const id of ['aquarium-nav', 'archive-nav', 'lab-nav']) {
     const selected = id === section + '-nav';
     const link = get(id);
     link.classList.toggle('is-active', selected);
@@ -413,12 +421,92 @@ function nav(section: 'archive' | 'lab') {
     else link.removeAttribute('aria-current');
   }
 }
+
+const sceneDescriptions: Record<AquariumPreset, string> = {
+  mixed: 'Two shoals pass the surface cruiser and the seahorse.',
+  guppies: 'Fan-tailed guppies turn together through midwater.',
+  goldfish: 'Small goldfish make a slower circuit above the floor.',
+};
+
+function renderAquariumControls() {
+  get('tank-strip').querySelectorAll<HTMLButtonElement>('button[data-tank-preset]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.tankPreset === aquariumPreset));
+  });
+  set('tank-description', sceneDescriptions[aquariumPreset]);
+  get('tank-residents').querySelectorAll<HTMLButtonElement>('button[data-resident]').forEach(button => {
+    button.hidden = aquariumPreset !== 'mixed' && button.dataset.resident !== 'floor';
+  });
+  const pause = get('tank-pause');
+  pause.setAttribute('aria-pressed', String(aquariumPaused));
+  pause.innerHTML = aquariumPaused ? `${icon('play')} Resume motion` : `${icon('pause')} Pause motion`;
+  chamber?.setAquariumPaused(aquariumPaused);
+  if (get('graphics-error').hidden) document.querySelector('.stage-live span')!.textContent = aquariumPaused ? 'MOTION PAUSED' : 'LIVE AQUARIUM';
+}
+
+function showScreen(active: boolean) {
+  if (active !== aquariumActive && active) {
+    audio.stop();
+    setMode('observe');
+  }
+  aquariumActive = active;
+  document.body.dataset.screen = active ? 'aquarium' : 'laboratory';
+  for (const id of ['laboratory', 'form-strip', 'stage-id', 'archive']) get(id).hidden = active;
+  for (const selector of ['.record', '.mode-bar', '.discovery']) document.querySelector<HTMLElement>(selector)!.hidden = active;
+  for (const id of ['aquarium', 'tank-strip', 'tank-stage-meta', 'tank-residents']) get(id).hidden = !active;
+  get('observation').setAttribute('aria-label', active ? 'Aquarium viewing area' : 'Observation chamber');
+  if (!get('graphics-error').hidden) {
+    graphicsError(get('graphics-error').textContent ?? '');
+  } else {
+    document.querySelector('.stage-live span')!.textContent = active ? 'LIVE AQUARIUM' : 'LIVE OBSERVATION';
+  }
+  updateResult();
+  chamber?.showAquarium(active);
+  if (active) {
+    chamber?.selectAquariumPreset(aquariumPreset);
+    renderAquariumControls();
+  }
+}
+
 function toLab() {
-  if (location.hash === '#archive') history.replaceState(null, '', '#laboratory');
+  if (location.hash !== '#laboratory') history.replaceState(null, '', '#laboratory');
+  showScreen(false);
   nav('lab');
   get('laboratory').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 }
-const hashNav = () => nav(location.hash === '#archive' ? 'archive' : 'lab');
+
+function hashNav() {
+  if (location.hash === '#archive') {
+    showScreen(false);
+    nav('archive');
+    requestAnimationFrame(() => get('archive').scrollIntoView({ block: 'start' }));
+  } else if (location.hash === '#laboratory') {
+    showScreen(false);
+    nav('lab');
+    requestAnimationFrame(() => get('laboratory').scrollIntoView({ block: 'start' }));
+  } else {
+    showScreen(true);
+    nav('aquarium');
+    if (location.hash === '#aquarium') requestAnimationFrame(() => get('aquarium').scrollIntoView({ block: 'start' }));
+  }
+}
+click('tank-strip', event => {
+  const button = (event.target as Element).closest<HTMLButtonElement>('button[data-tank-preset]');
+  const next = aquariumPresets.find(item => item === button?.dataset.tankPreset);
+  if (!next || next === aquariumPreset) return;
+  aquariumPreset = next;
+  chamber?.selectAquariumPreset(next);
+  renderAquariumControls();
+});
+click('tank-pause', () => {
+  aquariumPaused = !aquariumPaused;
+  renderAquariumControls();
+});
+click('tank-residents', event => {
+  const button = (event.target as Element).closest<HTMLButtonElement>('button[data-resident]');
+  const subject = button?.dataset.resident;
+  const next = subject === 'floor' ? floorManager : featured.find(item => item.genome.morphology.fishForm === subject);
+  if (next) showRecord(owned.get(next.id) ?? next);
+});
 window.addEventListener('hashchange', hashNav);
 hashNav();
 

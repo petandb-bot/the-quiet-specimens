@@ -2,7 +2,7 @@
 
 ## Automated
 
-Run `npm test` for the Vitest suite. It covers deterministic choices and image-derived seeds, validation and normalization, mutation scope and lineage, 18 reference identities, JSON round-trip and damaged input handling, mesh attributes and indices for all plans over 66 trials plus 48 trials across the six new fish forms, action transitions, cooldown, boundary handling, and sound pacing. Run `npm run build` for TypeScript checking and the production bundle.
+Run `npm test` for the Vitest suite. It covers deterministic choices and image-derived seeds, validation and normalization, mutation scope and lineage, 21 reference identities, JSON round-trip and damaged input handling, mesh attributes and indices for all plans over 66 trials plus 64 trials across eight fish forms, action transitions, cooldown, boundary handling, and sound pacing. Run `npm run build` for TypeScript checking and the production bundle.
 
 ## Browser
 
@@ -25,3 +25,7 @@ A browser acceptance pass can verify that the first specimen renders, 3D rotatio
 - The hosted capture shows Vesper Crown and the reference selector. The shared browser reached the private sign-in gate, so physical touch, orbit, and camera transition feel remain unverified.
 
 [Hosted WebGL capture](../public/downloads/specimen-lab.jpg)
+
+## 1.2.0 release checks
+
+The production build and all 17 Vitest tests passed. The tests cover the two new body profiles, reproducibility of earlier references, separation between shoal depths, movement ranges for aquarium residents, preset population changes, and pause and resume.

@@ -1,4 +1,4 @@
-import { legacyGeneratorVersion } from '../core/model';
+import { formsGeneratorVersion, legacyGeneratorVersion, originalFishForms } from '../core/model';
 import type { FishForm, Morphology, Personality, Sonotype } from '../core/model';
 import { generate, normalizeGenome, paletteBank, specimen } from '../genesis/genome';
 
@@ -62,10 +62,21 @@ const gallery: FeaturedEntry[] = [
     material: 'SYNTHETIC', accentMaterial: 'METALLIC', pattern: 'striated', reflectivity: .69,
     palette: ['#6d709d', '#1c2446', '#ff6956'],
   }, { speed: 1.25, rhythm: 1.08, turning: 1.95, activity: .84, preferred: 'DART' }, { engine: 'Metallic Residue', register: 201 }],
+  ['arowana', 'Surface Mayor', {
+    length: 1.27, girth: .95, curvature: .04, eye: .47, fin: .94, emission: .22, appendages: 2,
+    material: 'METALLIC', accentMaterial: 'ORGANIC', pattern: 'striated', reflectivity: .65,
+    palette: ['#a2b18d', '#304347', '#f4db91'],
+  }, { speed: .47, rhythm: .65, activity: .38, curiosity: .57, preferred: 'CRUISE' }, { engine: 'Hollow Pulse', register: 117, interval: 5.8 }],
+  ['seahorse', 'Clinging Clerk', {
+    length: 1.00, girth: .92, curvature: .06, eye: .82, fin: .88, emission: .34,
+    material: 'ORGANIC', accentMaterial: 'TRANSLUCENT', pattern: 'contour', reflectivity: .35,
+    palette: ['#ca8965', '#4b2a50', '#ffd9a0'],
+  }, { speed: .39, rhythm: 1.49, curiosity: .80, caution: .28, preferred: 'HOVER' }, { engine: 'Thin Membrane', register: 308, envelope: .9 }],
 ];
 
 export const featured = gallery.map(([fishForm, name, morphology, behavior, sound]) => {
-  const genome = generate('FORM-' + fishForm.toUpperCase(), 'Reference');
+  const version = originalFishForms.some(form => form === fishForm) ? formsGeneratorVersion : undefined;
+  const genome = generate('FORM-' + fishForm.toUpperCase(), 'Reference', undefined, undefined, version);
   const record = specimen(normalizeGenome({
     ...genome,
     morphology: { ...genome.morphology, ...morphology, plan: 'FISH', fishForm },
@@ -75,4 +86,20 @@ export const featured = gallery.map(([fishForm, name, morphology, behavior, soun
   return { ...record, discoveredAt: '2026-11-19T00:00:00.000Z' };
 });
 
-export const references = [...featured, ...originals];
+const sedimentGenome = generate('FLOOR-MANAGER', 'Reference');
+const floorMorphology: Morphology = {
+  ...sedimentGenome.morphology, plan: 'RAY', length: .84, girth: .57, fin: 1.35, appendages: 2,
+  material: 'ORGANIC', accentMaterial: 'ORGANIC', pattern: 'mottled', emission: .11,
+  palette: ['#978464', '#323b37', '#d7c08b'],
+};
+delete floorMorphology.fishForm;
+
+export const floorManager = {
+  ...specimen(normalizeGenome({
+    ...sedimentGenome, morphology: floorMorphology,
+    behavior: { ...sedimentGenome.behavior, speed: .25, rest: 8, depth: -.70, activity: .06, preferred: 'REST' },
+  }), 'Floor Manager'),
+  discoveredAt: '2026-11-19T00:00:00.000Z',
+};
+
+export const references = [...featured, floorManager, ...originals];

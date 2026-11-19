@@ -296,3 +296,40 @@ body.viewing .form-strip{visibility:hidden}
   .stage-button{min-width:44px;min-height:44px}
   .mode-group button{min-height:44px}
 }
+
+.tank-intro .intro-line{letter-spacing:.10em}
+.tank-pause{min-width:136px;flex:none}
+body[data-screen=aquarium] .workspace{grid-template-columns:minmax(0,1fr)}
+body[data-screen=aquarium] .stage{height:clamp(420px,42vw,600px)}
+body[data-screen=aquarium] .stage canvas{cursor:default}
+body[data-screen=aquarium] .stage-action{display:none}
+body[data-screen=aquarium] .bathysphere{background:
+  radial-gradient(ellipse at 48% -12%,#4a9da5 0%,#246575 25%,#153b47 55%,transparent 83%),
+  linear-gradient(168deg,#23565e 0%,#0a2a33 58%,#091a21 100%)}
+body[data-screen=aquarium] .bathysphere::before{background:
+  conic-gradient(from 119deg at 48% -45%,transparent 16deg,#b6ece326 28deg,transparent 34deg,#91dce91e 44deg,transparent 56deg,#5cbbc319 71deg,transparent 81deg)}
+body[data-screen=aquarium] .stage-footer{color:#c7e0dc}
+body[data-screen=aquarium].viewing .stage{height:auto}
+.tank-strip{padding-block:8px}
+.tank-strip .form-buttons button{min-height:36px;font-size:.88rem}
+.tank-residents{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 13px;border-top:1px solid #a3c4cb2b;background:#10282f;color:#c6dade}
+.tank-byline{font-size:.84rem;color:#aac4ca}
+.tank-resident-links{display:flex;flex-wrap:wrap;gap:2px}
+.tank-resident-links button{font-size:.84rem;min-height:36px;background:none;color:#deeee9;padding:5px 9px;border:1px solid transparent;border-radius:4px;text-decoration:underline;text-underline-offset:.23em}
+.tank-resident-links button:hover{border-color:#497078}
+.tank-resident-links button:focus-visible{outline-color:#9ee7df;outline-offset:-2px}
+body[data-screen=aquarium] .site-footer{margin-top:28px}
+@media(max-width:650px){
+  body[data-screen=aquarium] .stage{height:clamp(305px,91vw,435px);min-height:0}
+  body[data-screen=aquarium].viewing .stage{height:auto}
+  .tank-intro .tank-pause{min-height:44px}
+  .tank-strip .form-buttons button,.tank-resident-links button{min-height:44px}
+  .tank-strip .form-buttons button{font-size:.80rem}
+  .tank-residents{display:block;padding-block:7px}
+  .tank-resident-links button{padding-inline:5px}
+  .nav-link .icon{display:none}
+}
+@media(max-width:395px){
+  .wordmark span{display:none}
+  nav .nav-link{padding-inline:7px}
+}

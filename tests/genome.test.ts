@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultChoices, engines, fishForms, legacyGeneratorVersion, plans } from '../src/core/model';
+import { defaultChoices, engines, fishForms, formsGeneratorVersion, legacyGeneratorVersion, plans } from '../src/core/model';
 import { generate, mutate, normalizeGenome, specimen } from '../src/genesis/genome';
 import { imageFeatures } from '../src/genesis/image';
 import { deserialize, serialize, validateGenome, validateRecord } from '../src/archive/records';
@@ -63,11 +63,15 @@ describe('Genesis and specimen exchange', () => {
     expect(unchangedMorphology).toBeGreaterThan(0);
   });
 
-  it('includes six new fish forms alongside the original twelve references', () => {
-    expect(references).toHaveLength(18);
-    expect(new Set(references.map(s => s.id)).size).toBe(18);
+  it('includes eight named fish forms and retains the previous reference IDs', () => {
+    expect(references).toHaveLength(21);
+    expect(new Set(references.map(s => s.id)).size).toBe(21);
     expect(featured.map(item => item.genome.morphology.fishForm)).toEqual(fishForms);
     expect(references.find(item => item.name === 'Ember Veil')?.id).toBe('QS-21019D32');
+    expect(references.find(item => item.name === 'Vesper Crown')?.id).toBe('QS-698FBF22');
+    const seen = new Set(Array.from({ length: 120 }, (_, i) => generate(String(i), 'Discover').morphology.fishForm));
+    expect(seen.has('arowana')).toBe(true);
+    expect(seen.has('seahorse')).toBe(true);
     expect(new Set(references.map(s => s.genome.morphology.plan))).toEqual(new Set(plans));
     expect(new Set(references.map(s => s.genome.sound.engine))).toEqual(new Set(engines));
   });
@@ -78,6 +82,8 @@ describe('Genesis and specimen exchange', () => {
     expect(original).toEqual(generateOriginal());
     expect(original.morphology.fishForm).toBeUndefined();
     expect(JSON.stringify(original)).not.toEqual(JSON.stringify(generate('E07', 'Discover', defaultChoices)));
+    const prior = Array.from({ length: 32 }, (_, i) => generate(String(i), 'Discover', defaultChoices, undefined, formsGeneratorVersion));
+    expect(prior.every(g => g.generatorVersion === formsGeneratorVersion && g.morphology.fishForm !== 'arowana' && g.morphology.fishForm !== 'seahorse')).toBe(true);
     const ember = references.find(item => item.id === 'QS-21019D32')!;
     expect(deserialize(serialize(ember)).genome).toEqual(ember.genome);
   });

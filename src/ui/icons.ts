@@ -1,4 +1,6 @@
 const shapes = {
+  aquarium: '<path d="M3 8c2.2 0 2.2-1.7 4.5-1.7S9.8 8 12 8s2.3-1.7 4.5-1.7S18.8 8 21 8M3 12c2.2 0 2.2-1.7 4.5-1.7S9.8 12 12 12s2.3-1.7 4.5-1.7S18.8 12 21 12M3 16c2.2 0 2.2-1.7 4.5-1.7S9.8 16 12 16s2.3-1.7 4.5-1.7S18.8 16 21 16"/>',
+  pause: '<path d="M9 5v14m6-14v14" stroke-width="2.3"/>',
   chamber: '<circle cx="12" cy="12" r="3"/><path d="M2 12c5-8 15-8 20 0-5 8-15 8-20 0Z"/>',
   grid: '<rect x="4" y="4" width="6" height="6" rx=".7"/><rect x="14" y="4" width="6" height="6" rx=".7"/><rect x="4" y="14" width="6" height="6" rx=".7"/><rect x="14" y="14" width="6" height="6" rx=".7"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.3" cy="8.1" r="1.4"/><path d="m21 17-5.5-5.5-9.5 9.5"/>',

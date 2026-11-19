@@ -1,4 +1,6 @@
 import * as T from 'three';
+import { Aquarium } from '../aquarium/scene';
+import type { AquariumPreset } from '../aquarium/motion';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Action, Specimen } from '../core/model';
@@ -27,6 +29,8 @@ function particles() {
 
 export class LabView {
   private renderer: T.WebGLRenderer;
+  private aquarium?: Aquarium;
+  private aquariumActive = false;
   private scene = new T.Scene();
   private camera = new T.PerspectiveCamera(35, 1, .1, 65);
   private controls: OrbitControls;
@@ -82,6 +86,7 @@ export class LabView {
       this.environment.dispose();
       this.environment = this.environmentMap();
       this.scene.environment = this.environment.texture;
+      if (this.aquarium) this.aquarium.scene.environment = this.environment.texture;
       if (this.current) this.load(this.current);
       this.available = true;
       this.onError('');
@@ -108,7 +113,7 @@ export class LabView {
     this.controls.addEventListener('start', () => { this.reframing = false; });
     canvas.addEventListener('keydown', this.onViewKey);
     canvas.addEventListener('pointerdown', event => {
-      if (this.mode !== 'inspect' && event.isPrimary && event.button === 0) {
+      if (!this.aquariumActive && this.mode !== 'inspect' && event.isPrimary && event.button === 0) {
         this.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
       } else {
         this.pointer = undefined;
@@ -122,7 +127,7 @@ export class LabView {
     canvas.addEventListener('pointercancel', () => { this.pointer = undefined; });
     canvas.addEventListener('pointerleave', () => { this.pointer = undefined; });
     canvas.addEventListener('pointerup', event => {
-      const isTap = this.mode !== 'inspect' && this.pointer?.id === event.pointerId && this.pointerTravel(event) <= 12;
+      const isTap = !this.aquariumActive && this.mode !== 'inspect' && this.pointer?.id === event.pointerId && this.pointerTravel(event) <= 12;
       this.pointer = undefined;
       if (!isTap) return;
       const rect = canvas.getBoundingClientRect();
@@ -201,6 +206,25 @@ export class LabView {
     this.onState(this.swim.state);
   }
 
+  showAquarium(active: boolean) {
+    if (this.aquariumActive === active) return;
+    this.aquariumActive = active;
+    this.pointer = undefined;
+    const canvas = this.renderer.domElement;
+    canvas.setAttribute('aria-label', active ? 'Live 3D aquarium with fish at several depths' : 'Interactive 3D specimen');
+    if (active) {
+      this.aquarium ??= new Aquarium(this.environment.texture);
+      canvas.tabIndex = -1;
+    }
+    this.resize();
+  }
+
+  selectAquariumPreset(preset: AquariumPreset) { this.aquarium?.setPreset(preset); }
+
+  setAquariumPaused(paused: boolean) {
+    if (this.aquarium) this.aquarium.paused = paused;
+  }
+
   setMode(mode: ViewMode) {
     if (this.mode === mode) return;
     this.mode = mode;
@@ -271,6 +295,7 @@ export class LabView {
     this.referenceDistance = Math.max(8.9, 12.1 / aspect);
     this.homePosition.set(.10, .50, this.referenceDistance);
     this.homeOrbit.setFromVector3(this.homePosition);
+    this.aquarium?.resize(aspect);
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.economy ? 1.35 : 1.8));
@@ -291,6 +316,11 @@ export class LabView {
       if (this.slowFrames > 45) { this.economy = true; this.resize(); }
     }
     const frame = Math.min(dt, .045);
+    if (this.aquariumActive && this.aquarium) {
+      if (!this.aquarium.paused) this.aquarium.update(frame);
+      this.renderer.render(this.aquarium.scene, this.aquarium.camera);
+      return;
+    }
     this.sceneTime += frame;
     this.tapPulse *= Math.exp(-frame * 7.8);
     if (this.swim && this.model && this.current) {
@@ -321,7 +351,7 @@ export class LabView {
   };
 
   thumbnail(specimen: Specimen): string | undefined {
-    if (!this.available) return;
+    if (!this.available || this.aquariumActive) return;
     const model = buildCreature(specimen, true);
     const box = new T.Box3().setFromObject(model.group);
     const size = box.getSize(new T.Vector3());

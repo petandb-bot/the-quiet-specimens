@@ -20,12 +20,15 @@ interface Profile {
   eye: number;
 }
 
-const profiles: Record<FishForm, Profile> = {
+type HorizontalForm = Exclude<FishForm, 'seahorse'>;
+
+const profiles: Record<HorizontalForm, Profile> = {
   lagoon:  { length: 3.72, depth: .64, width: .45, shoulder: 1.15, taper: .87, tailReach: 1.08, tailSpread: .70, dorsal: .50, rearSweep: .48, paddle: .42, eye: .088 },
   halo:    { length: 3.47, depth: .67, width: .43, shoulder: 1.31, taper: .78, tailReach: 1.83, tailSpread: 1.18, dorsal: .69, rearSweep: .76, paddle: .77, eye: .071 },
   machine: { length: 3.64, depth: .67, width: .60, shoulder: 1.06, taper: .50, tailReach: 1.20, tailSpread: .71, dorsal: .42, rearSweep: .72, paddle: .69, eye: .092 },
   cosmic:  { length: 3.41, depth: .56, width: .42, shoulder: 1.38, taper: .72, tailReach: 1.91, tailSpread: 1.20, dorsal: .93, rearSweep: .94, paddle: .58, eye: .075 },
   round:   { length: 2.53, depth: 1.07, width: .83, shoulder: 1.37, taper: .44, tailReach: .62, tailSpread: .46, dorsal: .27, rearSweep: .18, paddle: .34, eye: .224 },
+  arowana: { length: 5.18, depth: .63, width: .41, shoulder: 1.45, taper: .58, tailReach: .79, tailSpread: .71, dorsal: .39, rearSweep: .34, paddle: .67, eye: .118 },
   blade:   { length: 4.34, depth: .45, width: .37, shoulder: .91, taper: 1.19, tailReach: 1.43, tailSpread: 1.10, dorsal: .86, rearSweep: 1.28, paddle: .92, eye: .061 },
 };
 
@@ -36,7 +39,7 @@ function signedPower(x: number, power: number) {
   return Math.sign(x) * Math.abs(x) ** power;
 }
 
-function makeTrunk(profile: Profile, m: Morphology, form: FishForm): Trunk {
+function makeTrunk(profile: Profile, m: Morphology, form: HorizontalForm): Trunk {
   return (u, v, radial = 1) => {
     const a = tau * v;
     const radius = (.027 + Math.sin(Math.PI * u ** profile.shoulder) ** profile.taper) * m.girth * radial;
@@ -44,18 +47,23 @@ function makeTrunk(profile: Profile, m: Morphology, form: FishForm): Trunk {
     const cross = form === 'machine' ? .65 : 1;
     const x = (u - .49) * profile.length * m.length;
     const spine = m.curvature * (Math.sin(u * 5.5) - .42) + (form === 'blade' ? u ** 4 * .11 : 0);
-    return vector(x, spine + signedPower(Math.cos(a), cross) * radius * profile.depth * face,
+    const jaw = form === 'arowana' ? .28 * u ** 8 : 0;
+    return vector(x, spine + jaw + signedPower(Math.cos(a), cross) * radius * profile.depth * face,
       signedPower(Math.sin(a), cross) * radius * profile.width * face * (1 + .19 * m.asymmetry * Math.sin(a)));
   };
 }
 
-function body({ group, m, s, trunk, low }: Figure, form: FishForm) {
+function body({ group, m, s, trunk, low }: Figure, form: HorizontalForm) {
   if (form !== 'machine') {
     group.add(new Mesh(patch(low ? 63 : 108, low ? 29 : 46, trunk, (u, v) => {
       const tint = s.skin(u, v);
       if (form === 'lagoon') {
         const lateral = Math.exp(-((Math.cos(tau * v) - .05) ** 2) / .014) * Math.sin(Math.PI * u);
         tint.lerp(s.light, lateral * .46);
+      } else if (form === 'arowana') {
+        const shift = Math.sin(v * tau * 9) * .62;
+        const scaleEdge = Math.max(0, Math.cos(u * 120 + shift)) ** 14;
+        tint.lerp(s.body, .55).lerp(s.light, scaleEdge * .48);
       } else if (form === 'round') {
         tint.lerp(s.body, .39).lerp(s.light, Math.max(0, -Math.cos(tau * v)) ** 2 * .28);
       }
@@ -81,7 +89,7 @@ function body({ group, m, s, trunk, low }: Figure, form: FishForm) {
   }
 }
 
-function eyesAndGills({ group, m, s, trunk }: Figure, profile: Profile, form: FishForm) {
+function eyesAndGills({ group, m, s, trunk }: Figure, profile: Profile, form: HorizontalForm) {
   for (const side of [-1, 1]) {
     const angle = side === 1 ? .214 : .786;
     const eyeCount = form === 'cosmic' || form === 'machine' ? 3 : 1;
@@ -101,12 +109,17 @@ function eyesAndGills({ group, m, s, trunk }: Figure, profile: Profile, form: Fi
       const cheek = trunk(.79, angle + side * .10, 1.018);
       pearl(group, cheek, .097, s.jewel, vector(1.40, .55, .31));
     }
+    if (form === 'arowana') {
+      const start = trunk(.966, side === 1 ? .31 : .69, .86);
+      filament(group, u => start.clone().add(vector(.58 * u, .09 * u + .13 * u * u, side * .13 * u)),
+        s.trim, s.light, 20, false);
+    }
     filament(group, u => trunk(.94 + .057 * u, angle + side * (.104 + .064 * u), 1.038),
       s.trim, s.dark, 19, false);
   }
 }
 
-function fins({ group, m, s, trunk, low }: Figure, p: Profile, form: FishForm) {
+function fins({ group, m, s, trunk, low }: Figure, p: Profile, form: HorizontalForm) {
   const cut = form === 'machine' || form === 'blade';
   const sailShape = (v: number) => cut ? 1 - Math.abs(v - .30) / (v < .30 ? .33 : .74) : Math.sin(Math.PI * v) ** .68;
   for (const sign of [-1, 1]) {
@@ -120,7 +133,8 @@ function fins({ group, m, s, trunk, low }: Figure, p: Profile, form: FishForm) {
     };
     fin(group, tail, s, cut ? 7 : 13, low);
     const dorsal = (u: number, v: number) => {
-      const start = trunk(mix(.58, .26, v), sign === 1 ? 0 : .5, .83);
+      const root = form === 'arowana' ? mix(sign === 1 ? .37 : .51, .06, v) : mix(.58, .26, v);
+      const start = trunk(root, sign === 1 ? 0 : .5, .83);
       const span = sailShape(v) * u * (sign === 1 ? 1 : .44) * m.fin;
       return start.add(vector(-p.rearSweep * u * (.26 + .74 * (1 - v)),
         sign * p.dorsal * span, .14 * Math.sin(Math.PI * u) * v));
@@ -210,7 +224,7 @@ function trailing({ group, s, trunk, m }: Figure, form: 'halo' | 'cosmic') {
   }
 }
 
-export function buildFishForm(group: Figure['group'], m: Morphology, s: Surface, form: FishForm, low: boolean) {
+export function buildFishForm(group: Figure['group'], m: Morphology, s: Surface, form: HorizontalForm, low: boolean) {
   const profile = profiles[form];
   const figure: Figure = { group, m, s, trunk: makeTrunk(profile, m, form), low };
   body(figure, form);
