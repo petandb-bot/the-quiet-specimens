@@ -10,9 +10,9 @@ import { shoalCounts, tankFloor, tankPose } from './motion';
 import type { AquariumPreset, Pose, TankSubject } from './motion';
 
 function sediment() {
-  const floor = new T.PlaneGeometry(42, 30, 44, 34).rotateX(-Math.PI / 2);
+  const floor = new T.PlaneGeometry(58, 44, 54, 48).rotateX(-Math.PI / 2);
   const xyz = floor.getAttribute('position');
-  const color = new Float32Array(xyz.count * 3);
+  const color = new Float32Array(xyz.count * 4);
   const base = new T.Color('#183537');
   const sand = new T.Color('#41615a');
   for (let i = 0; i < xyz.count; i++) {
@@ -20,11 +20,15 @@ function sediment() {
     const ripple = Math.sin(z * 1.95 + Math.sin(x * .72) * 1.75) * .5 + .5;
     const dimple = Math.sin(x * 1.23 + z * .34) * Math.cos(z * .62);
     xyz.setY(i, tankFloor - .075 + .038 * ripple + .023 * dimple);
-    base.clone().lerp(sand, .30 * ripple + .12 * (1 + dimple)).toArray(color, i * 3);
+    base.clone().lerp(sand, .30 * ripple + .12 * (1 + dimple)).toArray(color, i * 4);
+    color[i * 4 + 3] = T.MathUtils.smoothstep(z, -17, -4);
   }
-  floor.setAttribute('color', new T.BufferAttribute(color, 3));
+  floor.setAttribute('color', new T.BufferAttribute(color, 4));
   floor.computeVertexNormals();
-  const ground = new T.Mesh(floor, new T.MeshStandardMaterial({ vertexColors: true, roughness: .89, metalness: .07 }));
+  const ground = new T.Mesh(floor, new T.MeshStandardMaterial({
+    vertexColors: true, roughness: .89, metalness: .07, transparent: true, depthWrite: false,
+  }));
+  ground.renderOrder = -1;
   const stones = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshStandardMaterial({
     color: '#57665d', roughness: .9,
   }), 48);
@@ -117,7 +121,7 @@ export class Aquarium {
   constructor(environment: T.Texture) {
     this.scene.environment = environment;
     this.scene.environmentIntensity = .68;
-    this.scene.fog = new T.FogExp2('#134750', .064);
+    this.scene.fog = new T.FogExp2('#134750', .047);
     this.scene.add(new T.HemisphereLight('#b5f7f2', '#254247', 1.48));
     const key = new T.DirectionalLight('#ffe0ab', 2.6);
     key.position.set(-3.2, 7.1, 3.6);

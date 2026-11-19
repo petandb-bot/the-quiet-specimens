@@ -35,9 +35,9 @@ export function shoalMembers(kind: Shoal): ShoalMember[] {
     const ring = Math.floor(i / 4);
     return {
       phase: rng.range(0, Math.PI * 2),
-      lag: -0.19 + ring * .12 + rng.range(-.053, .053),
+      lag: -0.19 + ring * .16 + rng.range(-.082, .082),
       lane: ((i % 4) - 1.5) * .58 + rng.range(-.21, .21),
-      rise: rng.range(-.47, .47),
+      rise: rng.range(-.54, .54),
       spread: rng.range(-.27, .27),
       size: rng.range(.32, .50) * (kind === 'goldfish' ? 1.13 : 1),
     };

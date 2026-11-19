@@ -10,10 +10,10 @@ const tau = Math.PI * 2;
 function bodyGeometry(kind: Shoal) {
   const isGuppy = kind === 'guppies';
   const length = isGuppy ? 1.36 : 1.16;
-  const low = new T.Color(isGuppy ? '#2c7599' : '#a53427');
-  const high = new T.Color(isGuppy ? '#c4ffeb' : '#ffdf8a');
-  const fin = new T.Color(isGuppy ? '#7ca1fb' : '#f56734');
-  const trim = new T.Color(isGuppy ? '#e4a1ef' : '#ffc269');
+  const low = new T.Color(isGuppy ? '#23648b' : '#8f2118');
+  const high = new T.Color(isGuppy ? '#b7f4ee' : '#ffa346');
+  const fin = new T.Color(isGuppy ? '#6885e4' : '#e54620');
+  const trim = new T.Color(isGuppy ? '#d48ce9' : '#ffab46');
   const shadow = new T.Color('#111821');
   const parts: T.BufferGeometry[] = [];
   const frame = (u: number, v: number) => {
@@ -23,7 +23,7 @@ function bodyGeometry(kind: Shoal) {
       Math.sin(a) * b * (isGuppy ? .14 : .25));
   };
   parts.push(patch(22, 16, frame, (u, v) => {
-    const belly = .38 + Math.cos(v * tau) ** 2 * .31;
+    const belly = .27 + Math.cos(v * tau) ** 2 * .31;
     const bar = Math.max(0, Math.sin(u * 37 + v * 9)) ** 5;
     return low.clone().lerp(high, belly + bar * .24);
   }));

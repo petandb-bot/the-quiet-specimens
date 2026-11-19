@@ -333,3 +333,9 @@ body[data-screen=aquarium] .site-footer{margin-top:28px}
   .wordmark span{display:none}
   nav .nav-link{padding-inline:7px}
 }
+
+.site-header{position:sticky;top:0;z-index:8}
+.intro,.archive{scroll-margin-top:78px}
+@media(max-width:650px){
+  .intro,.archive{scroll-margin-top:68px}
+}
