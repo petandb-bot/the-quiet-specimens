@@ -4,6 +4,8 @@
 
 生きているはずのない物体が、自分の意思で動いているように見える小さな庭園です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
 
+![Artificial Garden の WebGL キャプチャ](public/downloads/reborn-artificial-garden.jpg)
+
 ## 起動
 
 Node.js 22.12 以上と npm を使用します。

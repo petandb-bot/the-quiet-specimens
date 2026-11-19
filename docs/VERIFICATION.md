@@ -37,3 +37,9 @@ The Aquarium screen was checked through the hosted WebGL capture. DOM emulation 
 ## Reborn Phase A
 
 The Reborn suite verifies seeds and reference presets, finite geometry after animation, disposal, gesture state order, bounded continuous motion, and capped simulation catch-up. The original suite continues to exercise the aquarium, image-derived genomes, archive, and audio code under the Legacy route.
+
+- All 23 Vitest checks, TypeScript, and the Vite production build passed.
+- Reborn controls for reference selection, seed replay, Action, and View were exercised in DOM emulation. An older specimen record was loaded by Legacy using the existing IndexedDB store in emulation.
+- The managed browser relay timed out, and Chrome reached the private sign-in gate on the hosted URL. Live input, extended frame timing, iPhone operation, individual close-up captures, and motion recordings were not verified in this environment.
+- The host captured the Three.js garden at 1200 × 750. Hinge was airborne, Vessel showed its suspended interior, and Relay showed its linked body. The camera and shadow fill were revised after the first hosted image. [Final WebGL capture](../public/downloads/reborn-artificial-garden.jpg)
+- All nine reference sonotypes rendered offline at 44.1 and 48 kHz. The 18 checks produced finite output, with a maximum peak of 0.1186 in the offline Web Audio implementation.
