@@ -47,7 +47,7 @@ export class GardenView {
     this.renderer.setClearColor('#e7e3d6');
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.17;
+    this.renderer.toneMappingExposure = 1.10;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = T.PCFShadowMap;
     canvas.setAttribute('aria-label', 'Interactive three-dimensional artificial life garden');
@@ -56,7 +56,7 @@ export class GardenView {
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = .50;
 
-    const skylight = new T.HemisphereLight('#fff7e7', '#ad9a79', 2.05);
+    const skylight = new T.HemisphereLight('#fff7e7', '#ad9a79', 1.46);
     const key = new T.DirectionalLight('#fff0ce', 2.55);
     key.position.set(-4.8, 9.3, 4.7);
     key.castShadow = true;
@@ -143,7 +143,7 @@ export class GardenView {
 
   private resident(specimen: GardenSpecimen, anchor: GroundPoint, slot: number, solo = false): Resident {
     const rig = buildSpecimen(specimen.genome);
-    const radius = bodyPlans[specimen.genome.plan].radius;
+    const radius = bodyPlans[specimen.genome.plan].radius(specimen.genome);
     const movement = new GardenMotion(specimen.genome, anchor, solo ? [] : gardenObstacles, radius);
     const resident = { specimen, rig, slot, movement };
     rig.root.userData.seed = specimen.genome.seed;
@@ -212,12 +212,13 @@ export class GardenView {
     const width = Math.max(1, clientWidth), height = Math.max(1, clientHeight);
     const aspect = width / height;
     const portrait = aspect < 1;
-    const fullHeight = Math.max(9.1, (portrait ? 13.2 : 13.85) / aspect);
+    const fullHeight = Math.max(12.55, (portrait ? 12.65 : 15.15) / aspect);
+    const frameRise = -fullHeight * .037;
     const world = this.worldCamera;
     world.left = -fullHeight * aspect / 2;
     world.right = -world.left;
-    world.top = fullHeight / 2;
-    world.bottom = -world.top;
+    world.top = fullHeight / 2 + frameRise;
+    world.bottom = -fullHeight / 2 + frameRise;
     world.updateProjectionMatrix();
     this.detailCamera.aspect = aspect;
     this.detailCamera.fov = portrait ? Math.min(61, 34 / aspect) : 33;

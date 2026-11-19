@@ -1,4 +1,4 @@
-# Genome
+# Legacy genome
 
 Genome schema and exchange envelope use version 1. The default generator is 1.2.0. Discover also offers 1.0.0 and 1.1.0 to replay seeds from earlier releases. All 18 earlier references retain their IDs and genomes. Each record has a stable ID, timestamp, name, genome, favorite flag, and optional JPEG thumbnail. The stored genome is the authoritative instance format. The lineage array can hold two parent IDs for a later release.
 

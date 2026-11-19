@@ -30,6 +30,7 @@ export class GardenMotion {
   private rng;
   private home: GroundPoint;
   private target: GroundPoint;
+  private limit: { x: number; z: number };
   private vx = 0;
   private vz = 0;
   private elapsed = 0;
@@ -40,12 +41,14 @@ export class GardenMotion {
     private genome: GardenGenome, anchor: GroundPoint,
     private obstacles: readonly Obstacle[] = [], private radius = .68,
   ) {
-    this.home = anchor;
-    this.target = anchor;
+    const clearance = Math.max(0, radius - .75);
+    this.limit = { x: field.x - clearance, z: field.z - clearance };
+    this.home = [clamp(anchor[0], -this.limit.x, this.limit.x), clamp(anchor[1], -this.limit.z, this.limit.z)];
+    this.target = this.home;
     this.rng = random(genome.seed + '/motion');
     this.duration = this.rng.range(.75, 2.1);
     this.pose = {
-      x: anchor[0], z: anchor[1], yaw: this.rng.range(-.35, .6), speed: 0, time: 0, stride: 0,
+      x: this.home[0], z: this.home[1], yaw: this.rng.range(-.35, .6), speed: 0, time: 0, stride: 0,
       phase: 'Explore', gesture: gestures[genome.plan][0], action: 0, preparation: 0, recovery: 0,
     };
     this.turn();
@@ -54,8 +57,8 @@ export class GardenMotion {
   private turn() {
     for (let attempt = 0; attempt < 8; attempt++) {
       const reach = .8 + this.genome.curiosity * 1.35;
-      const x = clamp(this.home[0] + this.rng.range(-reach, reach), -field.x, field.x);
-      const z = clamp(this.home[1] + this.rng.range(-reach, reach), -field.z, field.z);
+      const x = clamp(this.home[0] + this.rng.range(-reach, reach), -this.limit.x, this.limit.x);
+      const z = clamp(this.home[1] + this.rng.range(-reach, reach), -this.limit.z, this.limit.z);
       if (!this.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.radius + this.radius * .43)) {
         this.target = [x, z];
         break;
@@ -119,8 +122,8 @@ export class GardenMotion {
     }
     this.vx = mix(this.vx, tx, 1 - Math.exp(-dt * 4.8));
     this.vz = mix(this.vz, tz, 1 - Math.exp(-dt * 4.8));
-    pose.x = clamp(pose.x + this.vx * dt, -field.x, field.x);
-    pose.z = clamp(pose.z + this.vz * dt, -field.z, field.z);
+    pose.x = clamp(pose.x + this.vx * dt, -this.limit.x, this.limit.x);
+    pose.z = clamp(pose.z + this.vz * dt, -this.limit.z, this.limit.z);
     pose.speed = Math.hypot(this.vx, this.vz);
     if (pose.speed > .032) {
       const delta = Math.atan2(-this.vz, this.vx) - pose.yaw;

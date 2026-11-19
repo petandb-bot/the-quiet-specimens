@@ -219,10 +219,10 @@ const relay: Builder = (root, g, m) => {
 };
 
 export const bodyPlans = {
-  HINGE: { build: hinge, actions: gestures.HINGE, radius: .68 },
-  VESSEL: { build: vessel, actions: gestures.VESSEL, radius: .72 },
-  RELAY: { build: relay, actions: gestures.RELAY, radius: .95 },
-} satisfies Record<GardenPlan, { build: Builder; actions: readonly string[]; radius: number }>;
+  HINGE: { build: hinge, actions: gestures.HINGE, radius: g => .68 * g.proportion },
+  VESSEL: { build: vessel, actions: gestures.VESSEL, radius: g => .61 * g.proportion + .13 },
+  RELAY: { build: relay, actions: gestures.RELAY, radius: g => .226 * (g.modules - 1) * g.proportion + .29 },
+} satisfies Record<GardenPlan, { build: Builder; actions: readonly string[]; radius: (genome: GardenGenome) => number }>;
 
 export function buildSpecimen(g: GardenGenome) {
   const root = new T.Group();

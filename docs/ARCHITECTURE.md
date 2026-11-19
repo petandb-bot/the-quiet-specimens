@@ -1,4 +1,4 @@
-# Architecture
+# Legacy architecture
 
 Vite serves a TypeScript application with Three.js and Web Audio. The app runs on a static host, with a relative base for subdirectory deployment. There is no application service, and the fonts ship with the project.
 
@@ -6,14 +6,14 @@ Vite serves a TypeScript application with Three.js and Web Audio. The app runs o
 | --- | --- |
 | `src/core` | Shared record shapes, registries, bounds helpers, and seeded randomness |
 | `src/genesis` | Local image analysis, deterministic generation, genome normalization, and mutation |
-| `src/morphology` | Body-plan registry, materials, parametric surfaces, membranes, and organ geometry |
-| `src/behavior` | Per-individual action state, kinematics, and reaction cooldown |
-| `src/aquarium` | Multi-subject aquarium scene, instanced fish, and depth-specific swimming motion |
-| `src/renderer` | WebGL chamber, camera and controls, vessel lighting, model lifetime, and thumbnails |
+| `src/legacy/morphology` | Body-plan registry, materials, parametric surfaces, membranes, and organ geometry |
+| `src/legacy/behavior` | Per-individual action state, kinematics, and reaction cooldown |
+| `src/legacy/aquarium` | Multi-subject aquarium scene, instanced fish, and depth-specific swimming motion |
+| `src/legacy/renderer` | WebGL chamber, camera and controls, vessel lighting, model lifetime, and thumbnails |
 | `src/audio` | Voice registry, synthesis graphs, AudioContext scheduling, and shared output |
 | `src/archive` | IndexedDB transactions, record validation, migration, and JSON exchange |
-| `src/presets` | Curated reference definitions |
-| `src/app` and `src/ui` | Composition, control handlers, and responsive presentation |
+| `src/legacy/presets` | Curated reference definitions |
+| `src/legacy/app` and `src/legacy/ui` | Composition, control handlers, and responsive presentation |
 
 The application owns the subject being observed. It passes the genome to independent render and audio components. The renderer observes the swim state and publishes only action transitions to the application, which supplies action identifiers to the audio engine. The latter schedules against AudioContext time and does not import Three.js. The position and pose remain ephemeral.
 

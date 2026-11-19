@@ -87,12 +87,13 @@ describe('Reborn study', () => {
   it('keeps movement finite, gradual, and inside the garden over several minutes', () => {
     for (const [i, reference] of gardenReferences.entries()) {
       const { genome } = reference;
-      const motion = new GardenMotion(genome, anchors[i % anchors.length], gardenObstacles, bodyPlans[genome.plan].radius);
+      const motion = new GardenMotion(genome, anchors[i % anchors.length], gardenObstacles, bodyPlans[genome.plan].radius(genome));
+      const clearance = Math.max(0, bodyPlans[genome.plan].radius(genome) - .75);
       let previous = [motion.pose.x, motion.pose.z];
       for (let frame = 0; frame < 10_800; frame++) {
         if (frame % 437 === 0) motion.react();
         const pose = motion.step();
-        if (!(Math.abs(pose.x) <= field.x && Math.abs(pose.z) <= field.z &&
+        if (!(Math.abs(pose.x) <= field.x - clearance && Math.abs(pose.z) <= field.z - clearance &&
           Math.hypot(pose.x - previous[0], pose.z - previous[1]) < .07)) {
           throw new Error(`Discontinuous movement for ${reference.name} at frame ${frame}`);
         }

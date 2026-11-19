@@ -1,4 +1,4 @@
-# Art direction
+# Legacy art direction
 
 A pale paper interface and archival blue separate the records from a dark, teal-lit chamber. Vesper Crown opens the chamber with an articulated, luminous halo. Ember Veil remains in the reference archive. The reference collection moves from cold glass and ivory through oxidized metal, coral, rust, and geometric violets. Material and creature silhouette are the primary visual signals.
 
