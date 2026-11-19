@@ -1,6 +1,6 @@
-import { formsGeneratorVersion, legacyGeneratorVersion, originalFishForms } from '../core/model';
-import type { FishForm, Morphology, Personality, Sonotype } from '../core/model';
-import { generate, normalizeGenome, paletteBank, specimen } from '../genesis/genome';
+import { formsGeneratorVersion, legacyGeneratorVersion, originalFishForms } from '../../core/model';
+import type { FishForm, Morphology, Personality, Sonotype } from '../../core/model';
+import { generate, normalizeGenome, paletteBank, specimen } from '../../genesis/genome';
 
 type Entry = [string, Partial<Morphology>, Partial<Personality>, Partial<Sonotype>];
 const census: Entry[] = [

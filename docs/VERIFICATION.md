@@ -33,3 +33,7 @@ The production build and all 17 Vitest tests passed. The tests cover the two new
 The Aquarium screen was checked through the hosted WebGL capture. DOM emulation exercised preset switching, the pause control, selecting a resident to open the Laboratory, and archive initialization. The local browser preview relay timed out, so interaction and performance on physical iPhone hardware remain unverified.
 
 [Living Aquarium screenshot](../public/downloads/living-aquarium.jpg)
+
+## Reborn Phase A
+
+The Reborn suite verifies seeds and reference presets, finite geometry after animation, disposal, gesture state order, bounded continuous motion, and capped simulation catch-up. The original suite continues to exercise the aquarium, image-derived genomes, archive, and audio code under the Legacy route.

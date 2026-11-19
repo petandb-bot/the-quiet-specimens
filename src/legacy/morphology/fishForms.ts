@@ -1,6 +1,6 @@
 import { Mesh, Vector3 } from 'three';
-import type { FishForm, Morphology } from '../core/model';
-import { mix, random } from '../core/random';
+import type { FishForm, Morphology } from '../../core/model';
+import { mix, random } from '../../core/random';
 import type { Surface } from './creature';
 import { filament, fin, patch, pearl, vector } from './mesh';
 

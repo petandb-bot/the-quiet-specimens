@@ -1,7 +1,7 @@
 import { engines } from '../src/core/model';
 import { random } from '../src/core/random';
 import { makeMaster, note } from '../src/audio/voices';
-import { references } from '../src/presets/reference';
+import { references } from '../src/legacy/presets/reference';
 
 const button = document.querySelector<HTMLButtonElement>('#run')!;
 const result = document.querySelector<HTMLPreElement>('#result')!;

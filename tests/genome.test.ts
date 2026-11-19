@@ -3,7 +3,7 @@ import { defaultChoices, engines, fishForms, formsGeneratorVersion, legacyGenera
 import { generate, mutate, normalizeGenome, specimen } from '../src/genesis/genome';
 import { imageFeatures } from '../src/genesis/image';
 import { deserialize, serialize, validateGenome, validateRecord } from '../src/archive/records';
-import { featured, references } from '../src/presets/reference';
+import { featured, references } from '../src/legacy/presets/reference';
 
 describe('Genesis and specimen exchange', () => {
   it('recreates the same genome from choices and seed', () => {

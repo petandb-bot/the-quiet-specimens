@@ -1,7 +1,7 @@
-import { actions, actionLabels, discoveryOptions, fishFormLabels, generatorVersion, generatorVersions, mutationModes } from '../core/model';
-import type { Generator, Specimen } from '../core/model';
+import { actions, actionLabels, discoveryOptions, fishFormLabels, generatorVersion, generatorVersions, mutationModes } from '../../core/model';
+import type { Generator, Specimen } from '../../core/model';
 import { icon } from './icons';
-const mark = import.meta.env.BASE_URL + 'mark.svg';
+import mark from '/mark.svg?url';
 
 export function layout(featured: readonly Specimen[]) {
   return `
@@ -13,6 +13,7 @@ export function layout(featured: readonly Specimen[]) {
           <span>The Quiet<br>Specimens</span>
         </a>
         <nav aria-label="Primary">
+          <a class="nav-link" href="../">Reborn</a>
           <a class="nav-link" href="#aquarium" id="aquarium-nav">${icon('aquarium')} Aquarium</a>
           <a class="nav-link is-active" href="#laboratory" id="lab-nav">${icon('chamber')} Laboratory</a>
           <a class="nav-link" href="#archive" id="archive-nav">${icon('grid')} Archive</a>

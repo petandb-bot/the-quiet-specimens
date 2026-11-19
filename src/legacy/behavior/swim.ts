@@ -1,5 +1,5 @@
-import type { Action, Personality, Plan } from '../core/model';
-import { clamp, mix, random } from '../core/random';
+import type { Action, Personality, Plan } from '../../core/model';
+import { clamp, mix, random } from '../../core/random';
 
 export const bounds = [1.05, .66, .85] as const;
 export const actionDurations: Record<Action, number> = {

@@ -1,7 +1,7 @@
 import { CatmullRomCurve3, Mesh } from 'three';
 import type { Group, Vector3 } from 'three';
-import type { Morphology } from '../core/model';
-import { mix } from '../core/random';
+import type { Morphology } from '../../core/model';
+import { mix } from '../../core/random';
 import type { Surface } from './creature';
 import { filament, fin, patch, pearl, vector } from './mesh';
 

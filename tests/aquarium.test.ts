@@ -1,8 +1,8 @@
 import { InstancedMesh, Matrix4, Texture } from 'three';
 import { describe, expect, it } from 'vitest';
-import { Aquarium } from '../src/aquarium/scene';
-import { shoalCounts, shoalMembers, shoalPose, tankFloor, tankPose } from '../src/aquarium/motion';
-import type { Pose, Shoal } from '../src/aquarium/motion';
+import { Aquarium } from '../src/legacy/aquarium/scene';
+import { shoalCounts, shoalMembers, shoalPose, tankFloor, tankPose } from '../src/legacy/aquarium/motion';
+import type { Pose, Shoal } from '../src/legacy/aquarium/motion';
 
 const pose = (): Pose => ({ position: [0, 0, 0], yaw: 0, roll: 0, pitch: 0 });
 

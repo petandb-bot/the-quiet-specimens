@@ -1,4 +1,4 @@
-import { clamp, random } from '../core/random';
+import { clamp, random } from '../../core/random';
 
 export const aquariumPresets = ['mixed', 'guppies', 'goldfish'] as const;
 export type AquariumPreset = typeof aquariumPresets[number];

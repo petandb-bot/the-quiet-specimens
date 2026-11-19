@@ -1,10 +1,10 @@
 import { Mesh, Line, Vector3, Box3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { bounds, Swim } from '../src/behavior/swim';
+import { bounds, Swim } from '../src/legacy/behavior/swim';
 import { actions, fishForms, plans } from '../src/core/model';
 import { generate, specimen } from '../src/genesis/genome';
-import { buildCreature } from '../src/morphology/creature';
-import { featured, references } from '../src/presets/reference';
+import { buildCreature } from '../src/legacy/morphology/creature';
+import { featured, references } from '../src/legacy/presets/reference';
 
 function checkGeometry(model: ReturnType<typeof buildCreature>) {
   const size = new Box3().setFromObject(model.group).getSize(new Vector3());

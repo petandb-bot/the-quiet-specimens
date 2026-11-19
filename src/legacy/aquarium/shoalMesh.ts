@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { mix, random } from '../core/random';
+import { mix, random } from '../../core/random';
 import { patch, vector } from '../morphology/mesh';
 import { shoalMembers, shoalPose } from './motion';
 import type { Pose, Shoal } from './motion';

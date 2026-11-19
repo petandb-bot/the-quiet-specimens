@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { Material, Morphology, Plan, Specimen } from '../core/model';
-import { clamp, mix, random } from '../core/random';
+import type { Material, Morphology, Plan, Specimen } from '../../core/model';
+import { clamp, mix, random } from '../../core/random';
 import { filament, fin, patch, pearl, vector } from './mesh';
 import { buildFishForm } from './fishForms';
 import { buildSeahorse } from './seahorse';

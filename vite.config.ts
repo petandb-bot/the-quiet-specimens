@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     rollupOptions: {
-      input: { lab: 'index.html', browserVerification: 'tests/browser-check.html' },
+      input: { garden: 'index.html', legacy: 'legacy/index.html', browserVerification: 'tests/browser-check.html' },
       output: { manualChunks: { three: ['three'] } },
     },
     chunkSizeWarningLimit: 550,

@@ -23,12 +23,14 @@ export class Rhythm {
   }
 }
 
+type SoundSpecimen = { genome: Pick<Specimen['genome'], 'seed' | 'sound'> };
+
 export class ChamberSound {
   private context?: AudioContext;
   private bus?: GainNode;
   private interval?: number;
   private voices: ReturnType<typeof note>[] = [];
-  private specimen?: Specimen;
+  private specimen?: SoundSpecimen;
   private rng = random('initial chamber');
   private time = 0;
   private auditionUntil = 0;
@@ -58,7 +60,7 @@ export class ChamberSound {
     this.notify();
   }
 
-  setSpecimen(specimen: Specimen) {
+  setSpecimen(specimen: SoundSpecimen) {
     if (this.auditionOnly) this.stop();
     this.auditionUntil = 0;
     this.clearVoices();
