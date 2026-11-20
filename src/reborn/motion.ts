@@ -14,6 +14,22 @@ export type Phase = 'Explore' | 'Hesitate' | 'Act' | 'Recover' | 'Rest';
 export type GroundPoint = readonly [x: number, z: number];
 export type Obstacle = { x: number; z: number; radius: number };
 export interface MotionField { bounds: { x:number; z:number }; height: (x:number,z:number)=>number; slope: (x:number,z:number)=>number }
+export function canTraverse(terrain: MotionField, plan: GardenPlan, radius: number, obstacles: readonly Obstacle[],
+  x: number, z: number, nextX: number, nextZ: number) {
+  for (const obstacle of obstacles) {
+    const buffer = obstacle.radius + radius * .44;
+    const distance = Math.hypot(nextX - obstacle.x, nextZ - obstacle.z);
+    if (distance < buffer && distance < Math.hypot(x - obstacle.x, z - obstacle.z) - .0001) return false;
+  }
+  if (plan === 'VESSEL') return true;
+  const distance = Math.max(.03, Math.hypot(nextX - x, nextZ - z));
+  const maximum = plan === 'HINGE' ? .69 : .87;
+  const localSlope = terrain.slope(x, z), nextSlope = terrain.slope(nextX, nextZ);
+  const slope = Math.abs(terrain.height(nextX, nextZ) - terrain.height(x, z)) / distance;
+  return (nextSlope <= maximum && slope <= maximum + .1)
+    || (localSlope > maximum && nextSlope < localSlope - .00002 && slope <= maximum + .28);
+}
+
 export interface MotionPose {
   x: number; z: number; yaw: number; speed: number; time: number; stride: number;
   phase: Phase; gesture: Gesture; action: number; preparation: number; recovery: number;
@@ -37,6 +53,8 @@ export class GardenMotion {
   private elapsed = 0;
   private duration: number;
   private burst = 0;
+  private blockedFor = 0;
+  private detour = 1;
 
   constructor(
     private genome: GardenGenome, anchor: GroundPoint,
@@ -50,6 +68,7 @@ export class GardenMotion {
     this.target = this.home;
     this.rng = random(genome.seed + '/motion');
     this.duration = this.rng.range(.75, 2.1);
+    this.detour = this.rng.next() < .5 ? -1 : 1;
     this.pose = {
       x: this.home[0], z: this.home[1], yaw: this.rng.range(-.35, .6), speed: 0, time: 0, stride: 0,
       phase: 'Explore', gesture: gestures[genome.plan][0], action: 0, preparation: 0, recovery: 0,
@@ -127,10 +146,34 @@ export class GardenMotion {
       tx += ox * push / Math.max(.05, separation);
       tz += oz * push / Math.max(.05, separation);
     }
+    if (this.terrain && speed > .05) {
+      const course = Math.atan2(tz, tx);
+      const lookAhead = .68 + this.radius * .18;
+      const canMove = (angle: number) => {
+        const x = pose.x + Math.cos(angle) * lookAhead, z = pose.z + Math.sin(angle) * lookAhead;
+        return Math.abs(x) <= this.limit.x && Math.abs(z) <= this.limit.z
+          && canTraverse(this.terrain!, this.genome.plan, this.radius, this.obstacles, pose.x, pose.z, x, z);
+      };
+      if (!canMove(course)) {
+        const turn = [this.detour * .82, -this.detour * .82, this.detour * 1.55, -this.detour * 1.55]
+          .find(offset => canMove(course + offset));
+        this.blockedFor += dt;
+        if (turn === undefined) { tx = 0; tz = 0; }
+        else { tx = Math.cos(course + turn) * speed * .73; tz = Math.sin(course + turn) * speed * .73; }
+        if (this.blockedFor > 1.5) { this.turn(); this.blockedFor = 0; }
+      } else this.blockedFor = 0;
+    }
     this.vx = mix(this.vx, tx, 1 - Math.exp(-dt * 4.8));
     this.vz = mix(this.vz, tz, 1 - Math.exp(-dt * 4.8));
-    pose.x = clamp(pose.x + this.vx * dt, -this.limit.x, this.limit.x);
-    pose.z = clamp(pose.z + this.vz * dt, -this.limit.z, this.limit.z);
+    const nextX = clamp(pose.x + this.vx * dt, -this.limit.x, this.limit.x);
+    const nextZ = clamp(pose.z + this.vz * dt, -this.limit.z, this.limit.z);
+    if (!this.terrain || canTraverse(this.terrain, this.genome.plan, this.radius, this.obstacles, pose.x, pose.z, nextX, nextZ)) {
+      pose.x = nextX;
+      pose.z = nextZ;
+    } else {
+      this.vx *= .40;
+      this.vz *= .40;
+    }
     pose.speed = Math.hypot(this.vx, this.vz);
     if (pose.speed > .032) {
       const delta = Math.atan2(-this.vz, this.vx) - pose.yaw;

@@ -8,6 +8,8 @@ import { GardenView, worldLimit } from './view';
 import type { CameraMode } from './view';
 import { defaultLand, terrainKinds } from './terrain';
 import type { TerrainKind } from './terrain';
+import { defaultImage } from './photo';
+import type { ImageSettings } from './photo';
 import { freshSeed } from '../core/random';
 import type { GardenMode } from './view';
 import './style.css';
@@ -17,7 +19,7 @@ function element<T extends HTMLElement = HTMLElement>(id: string) {
 }
 
 element('app').innerHTML = `
-  <a class="skip" href="#controls">Skip to controls</a>
+  <a class="skip" href="#world-settings">Skip to controls</a>
   <main class="experience" id="experience">
     <div class="canvas" id="canvas"></div>
     <p class="graphics" id="graphics" role="status" hidden></p>
@@ -25,7 +27,10 @@ element('app').innerHTML = `
       <a class="brand" href="./" aria-label="The Quiet Specimens home"><span class="brand-mark" aria-hidden="true"><i></i></span><span>The Quiet<br>Specimens</span></a>
       <nav aria-label="Artwork controls">
         <a class="utility legacy" href="./legacy/">Legacy</a>
-        <button class="utility" type="button" id="world-settings" aria-expanded="false">World</button>
+        <button class="utility" type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">World</button>
+        <button class="utility" type="button" id="life-settings" aria-controls="controls" aria-expanded="false">Life</button>
+        <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
+        <button class="utility" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
         <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
         <button class="utility" type="button" id="view">View</button>
       </nav>
@@ -36,20 +41,44 @@ element('app').innerHTML = `
       <p class="caption-line" id="subtitle">A world continuing beyond the frame.</p>
     </div>
     <section class="land-panel" id="land-panel" aria-label="World settings" hidden>
-      <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
       <label>Terrain<select id="land-kind"></select></label>
       <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
       <label>Roughness<input id="land-rough" type="range" min="0" max="100" value="26"></label>
       <label>World seed<input id="land-seed" maxlength="48" value="ELSEWHERE-01"></label>
+      <details><summary>Composition</summary>
+        <label>Openness<input id="land-open" type="range" min="0" max="100" value="61"></label>
+        <label>Landmark density<input id="land-density" type="range" min="0" max="100" value="66"></label>
+      </details>
       <div class="land-buttons"><button id="land-apply" type="button">Apply land</button><button id="land-new" type="button">New terrain</button></div>
-      <label>Photo backdrop<input id="land-photo" type="file" accept="image/*"></label>
-      <button id="land-clear" type="button">Clear photo</button>
-      <p class="land-note">Terrain changes keep your specimens. Photo stays in this session.</p>
+      <p class="land-note">Terrain changes keep your residents.</p>
+    </section>
+    <section class="land-panel" id="image-panel" aria-label="Image settings" hidden>
+      <label>Local photo<input id="land-photo" type="file" accept="image/*"></label>
+      <div id="photo-controls" class="region-fields" hidden>
+        <label>Image mode<select id="image-mode"><option>Backdrop</option><option>Atmosphere</option></select></label>
+        <label>Image scale<input id="image-scale" type="range" min="100" max="250" value="100"></label>
+        <label>Horizontal offset<input id="image-x" type="range" min="-100" max="100" value="0"></label>
+        <label>Vertical offset<input id="image-y" type="range" min="-100" max="100" value="0"></label>
+        <label>Horizon position<input id="image-horizon" type="range" min="0" max="100" value="50"></label>
+        <label>Blur<input id="image-blur" type="range" min="0" max="100" value="9"></label>
+        <label>Color influence<input id="image-color" type="range" min="0" max="100" value="52"></label>
+        <label>Ground blend<input id="image-ground" type="range" min="0" max="100" value="73"></label>
+        <button id="land-clear" type="button">Clear photo</button>
+      </div>
+      <p class="land-note">The image stays in this browser session.</p>
+    </section>
+    <section class="land-panel" id="camera-panel" aria-label="Camera settings" hidden>
+      <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
+      <label>Resident<select id="camera-resident"></select></label>
+      <div class="land-buttons"><button id="zoom-out" type="button">Zoom out</button><button id="zoom-in" type="button">Zoom in</button></div>
+      <button id="camera-reset" type="button">Reset camera</button>
+      <label class="check-line"><input id="camera-still" type="checkbox"> Reduce camera motion</label>
+      <p class="land-note">Drag to orbit. Right-drag or two-finger drag to pan.</p>
     </section>
     <button class="utility exit" type="button" id="exit" hidden>Exit view</button>
     <div class="notice" id="notice" role="status" hidden></div>
 
-    <div class="control-dock" id="controls">
+    <div class="control-dock" id="controls" hidden>
       <div class="view-modes">
         <div class="mode-group" role="group" aria-label="View mode">
           <button type="button" data-mode="Observe" aria-pressed="true">Observe</button>
@@ -110,6 +139,9 @@ let graphics: GardenView | undefined;
 let lastReading = '';
 let noteTimer = 0;
 let eventSerial = 0;
+let panel: 'land' | 'image' | 'camera' | 'life' | undefined;
+const cameraMode = element<HTMLSelectElement>('camera-mode');
+const cameraResident = element<HTMLSelectElement>('camera-resident');
 
 function notice(message: string) {
   element('notice').textContent = message;
@@ -134,6 +166,7 @@ const sound = new ChamberSound((on, testing) => {
 sound.setVolume(.52);
 
 function syncMotion() {
+  if (graphics && cameraMode.value !== graphics.camera) cameraMode.value = graphics.camera;
   const pose = graphics?.getPose(current.genome.seed);
   const reading = !pose ? 'Outside the garden'
     : isPaused ? 'Motion paused'
@@ -173,7 +206,13 @@ function syncMembership() {
   const member = element<HTMLButtonElement>('membership');
   member.textContent = present ? 'Remove from world' : 'Add to world';
   member.disabled = !graphics || (!present && graphics.count >= worldLimit);
-  element('occupancy').textContent = graphics ? `${graphics.count} / ${worldLimit} in the garden` : '';
+  element('occupancy').textContent = graphics ? `${graphics.count} / ${worldLimit} in the world` : '';
+  const residents = graphics?.residents ?? [];
+  cameraResident.replaceChildren(...residents.map(item => new Option(item.name, item.genome.seed)));
+  cameraResident.value = residents.some(item => item.genome.seed === current.genome.seed)
+    ? current.genome.seed : (residents[0]?.genome.seed ?? '');
+  cameraResident.disabled = !residents.length;
+  cameraMode.options[2].disabled = !residents.length;
   syncMotion();
 }
 
@@ -213,23 +252,80 @@ function pause(next: boolean) {
 }
 
 const click = (id: string, callback: () => void) => element(id).addEventListener('click', callback);
-const landKind=element<HTMLSelectElement>('land-kind');
-for(const kind of terrainKinds) landKind.add(new Option(kind,kind));
-landKind.value=defaultLand.kind;
-const landSeed=element<HTMLInputElement>('land-seed');
-function landPanel(open:boolean){element('land-panel').hidden=!open;element('world-settings').setAttribute('aria-expanded',String(open));}
-click('world-settings',()=>landPanel(element('land-panel').hidden));
-function applyLand(){
-  if(!graphics)return;
-  try{graphics.setLand({seed:landSeed.value.trim()||defaultLand.seed,kind:landKind.value as TerrainKind,elevation:Number(element<HTMLInputElement>('land-height').value)/100,roughness:Number(element<HTMLInputElement>('land-rough').value)/100});setMode('Observe');notice('Landscape regenerated.');}
-  catch(error){notice(error instanceof Error?error.message:'Terrain could not be created.');}
+const landKind = element<HTMLSelectElement>('land-kind');
+for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
+landKind.value = defaultLand.kind;
+const landSeed = element<HTMLInputElement>('land-seed');
+const panels = { land: ['world-settings', 'land-panel'], life: ['life-settings', 'controls'],
+  image: ['image-settings', 'image-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
+function showPanel(next?: keyof typeof panels) {
+  panel = next;
+  for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
+    const [button, content] = panels[key];
+    element(content).hidden = next !== key;
+    element(button).setAttribute('aria-expanded', String(next === key));
+  }
 }
-click('land-apply',applyLand);
-click('land-new',()=>{landSeed.value=freshSeed();applyLand();});
-element<HTMLSelectElement>('camera-mode').addEventListener('change',event=>{graphics?.setCamera((event.currentTarget as HTMLSelectElement).value as CameraMode);setMode('Observe');});
-const photoInput=element<HTMLInputElement>('land-photo');
-photoInput.addEventListener('change',()=>{const file=photoInput.files?.[0];if(file&&graphics)void graphics.setPhoto(file).then(()=>{setMode('Observe');}).catch(error=>notice(error instanceof Error?error.message:'Photo could not be loaded.'));photoInput.value='';});
-click('land-clear',()=>graphics?.clearPhoto());
+for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
+  click(panels[key][0], () => showPanel(panel === key ? undefined : key));
+}
+const value = (id: string) => Number(element<HTMLInputElement>(id).value) / 100;
+
+function applyLand() {
+  if (!graphics) return;
+  try {
+    graphics.setLand({
+      seed: landSeed.value.trim() || defaultLand.seed, kind: landKind.value as TerrainKind,
+      elevation: value('land-height'), roughness: value('land-rough'), openness: value('land-open'), density: value('land-density'),
+    });
+    setMode('Observe');
+    notice('Landscape regenerated.');
+  } catch (error) { notice(error instanceof Error ? error.message : 'Terrain could not be created.'); }
+}
+click('land-apply', applyLand);
+click('land-new', () => { landSeed.value = freshSeed(); applyLand(); });
+
+function selectCamera(selected: CameraMode) {
+  if (selected === 'Follow') {
+    const resident = graphics?.residents.find(item => item.genome.seed === cameraResident.value);
+    if (resident) select(resident, false);
+  }
+  setMode('Observe');
+  graphics?.setCamera(selected);
+  syncMotion();
+}
+cameraMode.addEventListener('change', () => selectCamera(cameraMode.value as CameraMode));
+cameraResident.addEventListener('change', () => selectCamera('Follow'));
+click('zoom-in', () => graphics?.zoom(1.14));
+click('zoom-out', () => graphics?.zoom(1 / 1.14));
+click('camera-reset', () => { setMode('Observe'); graphics?.resetCamera(); syncMotion(); });
+const still = element<HTMLInputElement>('camera-still');
+still.checked = media.matches;
+still.addEventListener('change', () => graphics?.setStillCamera(still.checked));
+graphics?.setStillCamera(still.checked);
+
+const photoInput = element<HTMLInputElement>('land-photo');
+const imageMode = element<HTMLSelectElement>('image-mode');
+imageMode.value = defaultImage.mode;
+function applyImage() {
+  const settings: ImageSettings = {
+    mode: imageMode.value as ImageSettings['mode'], scale: value('image-scale'), x: value('image-x'), y: value('image-y'),
+    horizon: value('image-horizon'), blur: value('image-blur'), color: value('image-color'), ground: value('image-ground'),
+  };
+  graphics?.setImage(settings);
+}
+element('photo-controls').addEventListener('input', applyImage);
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files?.[0];
+  if (file && graphics) void graphics.setPhoto(file).then(loaded => {
+    if (!loaded) return;
+    element('photo-controls').hidden = false;
+    applyImage();
+    setMode('Observe');
+  }).catch(error => notice(error instanceof Error ? error.message : 'Photo could not be loaded.'));
+  photoInput.value = '';
+});
+click('land-clear', () => { graphics?.clearPhoto(); element('photo-controls').hidden = true; });
 document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(button =>
   button.addEventListener('click', () => setMode(button.dataset.mode as GardenMode)));
 reference.addEventListener('change', () => {
@@ -270,9 +366,11 @@ click('audition', () => {
   else void sound.audition().then(ok => { if (!ok) notice('Audio did not start on this device.'); });
 });
 
+let panelBeforeView: typeof panel;
 function viewing(show: boolean) {
-  if(show)landPanel(false);
-  for (const name of ['identity', 'caption', 'controls']) element(name).hidden = show;
+  if (show) { panelBeforeView = panel; showPanel(); }
+  else showPanel(panelBeforeView);
+  for (const name of ['identity', 'caption']) element(name).hidden = show;
   element('exit').hidden = !show;
   element(show ? 'exit' : 'view').focus();
 }
@@ -280,7 +378,7 @@ click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
-  else if(event.key==='Escape')landPanel(false);
+  else if (event.key === 'Escape') showPanel();
 });
 
 sound.setSpecimen(current);
