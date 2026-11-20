@@ -1,5 +1,5 @@
 import { WorldComposer } from './composer/editor';
-import { ChamberSound } from '../audio/scheduler';
+import { GardenSound } from './sound/garden-sound';
 import type { Action } from '../core/model';
 import { fromGardenSeed, gardenReferences, newGardenSpecimen } from './genome';
 import type { GardenSpecimen } from './genome';
@@ -34,6 +34,7 @@ element('app').innerHTML = `
         <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
         <button class="utility" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
         <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
+        <button class="utility" type="button" id="audio-settings" aria-controls="audio-panel" aria-expanded="false">Audio</button>
         <button class="utility" type="button" id="view">View</button>
       </nav>
     </header>
@@ -69,6 +70,12 @@ element('app').innerHTML = `
         <button id="land-clear" type="button">Clear photo</button>
       </div>
       <p class="land-note">The image stays in this browser session.</p>
+    </section>
+    <section class="land-panel" id="audio-panel" aria-label="Audio controls" hidden>
+      <label>Master volume <output id="master-level">56%</output><input id="master-volume" type="range" min="0" max="100" value="56"></label>
+      <p class="land-note" id="audio-state" role="status">Sound is off.</p>
+      <div class="land-buttons"><button id="audio-audition" type="button" aria-pressed="false">Audition</button>
+        <button id="audio-reset" type="button">Audio Reset</button></div>
     </section>
     <section class="land-panel" id="camera-panel" aria-label="Camera settings" hidden>
       <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
@@ -135,7 +142,6 @@ const seedInput = element<HTMLInputElement>('seed');
 const media = matchMedia('(prefers-reduced-motion: reduce)');
 let current = gardenReferences[0];
 let mode: GardenMode = 'Observe';
-let enabled = false;
 let audition = false;
 let isPaused = media.matches;
 let graphics: GardenView | undefined;
@@ -144,7 +150,7 @@ let lastReading = '';
 let lastSoundReading = '';
 let noteTimer = 0;
 let eventSerial = 0;
-let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | undefined;
+let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | 'audio' | undefined;
 const cameraMode = element<HTMLSelectElement>('camera-mode');
 const cameraResident = element<HTMLSelectElement>('camera-resident');
 
@@ -160,15 +166,17 @@ function graphicsProblem(message: string) {
   element('graphics').textContent = message;
 }
 
-const sound = new ChamberSound((on, testing) => {
-  enabled = on;
+const sound = new GardenSound(({ state, audition: testing, message }) => {
   audition = testing;
+  const on = state === 'running';
   element('sound').setAttribute('aria-pressed', String(on));
-  element('sound').textContent = on ? 'Sound on' : 'Sound off';
-  element('audition').setAttribute('aria-pressed', String(testing));
-  element('audition').textContent = testing ? 'End audition' : 'Audition';
+  element('sound').textContent = on ? 'Sound on' : state === 'starting' ? 'Starting sound…' : state === 'blocked' ? 'Retry sound' : 'Sound off';
+  element('audio-state').textContent = message;
+  for (const id of ['audition', 'audio-audition']) {
+    element(id).setAttribute('aria-pressed', String(testing));
+    element(id).textContent = testing ? 'End audition' : 'Audition';
+  }
 });
-sound.setVolume(.52);
 
 function syncMotion() {
   if (graphics && cameraMode.value !== graphics.camera) cameraMode.value = graphics.camera;
@@ -276,7 +284,7 @@ for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
 landKind.value = defaultLand.kind;
 const landSeed = element<HTMLInputElement>('land-seed');
 const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-settings', 'land-panel'], life: ['life-settings', 'controls'],
-  image: ['image-settings', 'image-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
+  image: ['image-settings', 'image-panel'], audio: ['audio-settings', 'audio-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
 function showPanel(next?: keyof typeof panels) {
   if (next === 'compose') {
     if (!composer) return;
@@ -395,12 +403,23 @@ click('play-action', () => {
 });
 click('pause', () => pause(!isPaused));
 click('sound', () => {
-  if (enabled) sound.stop();
-  else void sound.start().then(ok => { if (!ok) notice('Audio did not start on this device.'); });
+  void sound.toggle().then(ok => {
+    if (!ok && element('sound').textContent === 'Retry sound') notice('Audio could not start. Try Sound again or use Audio Reset.');
+  });
 });
-click('audition', () => {
+function auditionSelected() {
   if (audition) sound.endAudition();
-  else void sound.audition().then(ok => { if (!ok) notice('Audio did not start on this device.'); });
+  else void sound.audition().then(ok => {
+    if (!ok && element('sound').textContent === 'Retry sound') notice('Audition could not start. Use Audio Reset to try again.');
+  });
+}
+click('audition', auditionSelected);
+click('audio-audition', auditionSelected);
+click('audio-reset', () => { sound.reset(); notice('Audio reset. Press Sound to start.'); });
+element('master-volume').addEventListener('input', () => {
+  const level = value('master-volume');
+  element('master-level').textContent = Math.round(level * 100) + '%';
+  sound.setVolume(level);
 });
 
 let panelBeforeView: typeof panel;
