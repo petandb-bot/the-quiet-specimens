@@ -72,7 +72,9 @@ element('app').innerHTML = `
       <p class="land-note">The image stays in this browser session.</p>
     </section>
     <section class="land-panel" id="audio-panel" aria-label="Audio controls" hidden>
+      <label>Mix<select id="audio-mode"><option>World</option><option>Solo</option></select></label>
       <label>Master volume <output id="master-level">56%</output><input id="master-volume" type="range" min="0" max="100" value="56"></label>
+      <label id="density-control">World density <input id="audio-density" type="range" min="0" max="100" value="62"></label>
       <p class="land-note" id="audio-state" role="status">Sound is off.</p>
       <div class="land-buttons"><button id="audio-audition" type="button" aria-pressed="false">Audition</button>
         <button id="audio-reset" type="button">Audio Reset</button></div>
@@ -197,6 +199,8 @@ function syncMotion() {
 
 try {
   graphics = new GardenView(element('canvas'), item => { if (current !== item) select(item, false); }, syncMotion, graphicsProblem);
+  const view = graphics;
+  sound.setScenery({ presence: id => view.soundPresence(id), points: () => view.soundPoints(), events: () => view.soundEvents() });
   composer = new WorldComposer(element('compose-panel'), graphics, () => current, () => {
     syncMembership();
     syncWorldControls();
@@ -233,6 +237,7 @@ function syncMembership() {
   member.disabled = !graphics || (!present && graphics.count >= worldLimit);
   element('occupancy').textContent = graphics ? `${graphics.count} / ${worldLimit} in the world` : '';
   const residents = graphics?.residents ?? [];
+  sound.setResidents(residents.map(specimen => ({ id: specimen.genome.seed, specimen })));
   cameraResident.replaceChildren(...residents.map(item => new Option(item.name, item.genome.seed)));
   cameraResident.value = residents.some(item => item.genome.seed === current.genome.seed)
     ? current.genome.seed : (residents[0]?.genome.seed ?? '');
@@ -417,6 +422,12 @@ function auditionSelected() {
 click('audition', auditionSelected);
 click('audio-audition', auditionSelected);
 click('audio-reset', () => { sound.reset(); notice('Audio reset. Press Sound to start.'); });
+const mix = element<HTMLSelectElement>('audio-mode');
+mix.addEventListener('change', () => {
+  sound.setMix(mix.value === 'Solo' ? 'Solo' : 'World');
+  element('density-control').hidden = mix.value === 'Solo';
+});
+element('audio-density').addEventListener('input', () => sound.setDensity(value('audio-density')));
 element('master-volume').addEventListener('input', () => {
   const level = value('master-volume');
   element('master-level').textContent = Math.round(level * 100) + '%';

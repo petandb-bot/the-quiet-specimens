@@ -516,6 +516,15 @@ export class GardenView {
     this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z);
     this.follow.advance(dt, this.worldCamera, this.cameraTarget, this.subject, terrain, this.stillCamera);
   }
+  soundPresence(seed: string) {
+    const pose = this.beings.get(seed)?.movement.pose;
+    return { x: pose?.x ?? 0, z: pose?.z ?? 0, resting: pose?.phase === 'Rest' || this.paused,
+      gathering: pose?.intent === 'Gather' };
+  }
+
+  soundPoints() { return this.garden.terrain.points; }
+  soundEvents() { return this.relations.events.filter(event => this.relations.time - event.at < 2.6); }
+
   setPaused(paused: boolean) { this.paused = paused; }
   perform(action: Gesture) { this.study?.movement.perform(action); }
   getPose(seed: string) { return this.mode === 'Observe' ? this.beings.get(seed)?.movement.pose : this.study?.movement.pose; }

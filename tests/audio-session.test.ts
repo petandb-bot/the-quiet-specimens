@@ -45,6 +45,7 @@ afterEach(() => {
 it('plays an initial note under a running context, coalesces starts and releases its timer', async () => {
   const sound = new GardenSound(status => states.push(status.state));
   sound.setSpecimen(gardenReferences[0]);
+  sound.setMix('Solo');
   sound.behavior('REST', 1);
   expect(await sound.toggle()).toBe(true);
   expect(note).toHaveBeenCalledOnce();
@@ -63,6 +64,7 @@ it('plays an initial note under a running context, coalesces starts and releases
 it('reports a blocked start and allows a visible user retry or visibility recovery', async () => {
   const sound = new GardenSound(status => states.push(status.state));
   sound.setSpecimen(gardenReferences[0]);
+  sound.setMix('Solo');
   FakeContext.blocked = true;
   expect(await sound.toggle()).toBe(false);
   expect(states.at(-1)).toBe('blocked');
