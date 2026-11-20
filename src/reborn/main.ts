@@ -78,12 +78,12 @@ element('app').innerHTML = `
         <button id="audio-reset" type="button">Audio Reset</button></div>
     </section>
     <section class="land-panel" id="camera-panel" aria-label="Camera settings" hidden>
-      <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
+      <label>Camera<select id="camera-mode"><option>Fixed</option><option>Landscape</option><option>Soft Follow</option></select></label>
       <label>Resident<select id="camera-resident"></select></label>
       <div class="land-buttons"><button id="zoom-out" type="button">Zoom out</button><button id="zoom-in" type="button">Zoom in</button></div>
       <button id="camera-reset" type="button">Reset camera</button>
-      <label class="check-line"><input id="camera-still" type="checkbox"> Reduce camera motion</label>
-      <p class="land-note">Drag to orbit. Right-drag or two-finger drag to pan.</p>
+      <label class="check-line"><input id="camera-still" type="checkbox"> Reduce motion</label>
+      <p class="land-note">In Landscape, drag to turn or use two fingers to pan.</p>
     </section>
     <button class="utility exit" type="button" id="exit" hidden>Exit view</button>
     <div class="notice" id="notice" role="status" hidden></div>
@@ -143,7 +143,7 @@ const media = matchMedia('(prefers-reduced-motion: reduce)');
 let current = gardenReferences[0];
 let mode: GardenMode = 'Observe';
 let audition = false;
-let isPaused = media.matches;
+let isPaused = false;
 let graphics: GardenView | undefined;
 let composer: WorldComposer | undefined;
 let lastReading = '';
@@ -204,7 +204,7 @@ try {
     showPanel(follow ? undefined : 'life');
     select(item, false);
     setMode(follow ? 'Observe' : 'Inspect');
-    if (follow) { graphics?.setCamera('Follow'); syncMotion(); }
+    if (follow) { graphics?.setCamera('Soft Follow'); syncMotion(); }
   });
 } catch (error) {
   graphicsProblem(error instanceof Error ? error.message : 'The garden could not open on this device.');
@@ -319,7 +319,7 @@ click('land-apply', applyLand);
 click('land-new', () => { landSeed.value = freshSeed(); applyLand(); });
 
 function selectCamera(selected: CameraMode) {
-  if (selected === 'Follow') {
+  if (selected === 'Soft Follow') {
     const resident = graphics?.residents.find(item => item.genome.seed === cameraResident.value);
     if (resident) select(resident, false);
   }
@@ -328,12 +328,13 @@ function selectCamera(selected: CameraMode) {
   syncMotion();
 }
 cameraMode.addEventListener('change', () => selectCamera(cameraMode.value as CameraMode));
-cameraResident.addEventListener('change', () => selectCamera('Follow'));
+cameraResident.addEventListener('change', () => selectCamera('Soft Follow'));
 click('zoom-in', () => graphics?.zoom(1.14));
 click('zoom-out', () => graphics?.zoom(1 / 1.14));
 click('camera-reset', () => { setMode('Observe'); graphics?.resetCamera(); syncMotion(); });
 const still = element<HTMLInputElement>('camera-still');
-still.checked = media.matches;
+still.checked = true;
+media.addEventListener('change', () => { if (media.matches) { still.checked = true; graphics?.setStillCamera(true); } });
 still.addEventListener('change', () => graphics?.setStillCamera(still.checked));
 graphics?.setStillCamera(still.checked);
 

@@ -1,8 +1,8 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { boundLandscapePan, landscapeFrame, wanderFrame, followFrame, keptAboveLand } from './camera';
-import type { CameraMode } from './camera';
+import { boundLandscapePan, captureView, landscapeFrame, residentFrame, showView, SoftFollow } from './camera';
+import type { CameraMode, ObservationView } from './camera';
 import { PhotoEnvironment, defaultImage } from './photo';
 import type { ImageSettings } from './photo';
 import { inspectionPlinth } from './garden';
@@ -31,19 +31,20 @@ export class GardenView {
   private arranger: ArrangeScene;
   private arranging?: 'Perspective' | 'Plan';
   private navigating = false;
-  private arrangedFrom: CameraMode = 'Landscape';
+  private arrangedFrom?: { mode: CameraMode; frame: ObservationView };
   private activeWorld?: WorldDocument;
   private field?: ReturnType<typeof worldField>;
   private scene = new T.Scene();
   private worldCamera = new T.PerspectiveCamera(40, 1, .15, 170);
-  private cameraMode: CameraMode = 'Landscape';
+  private cameraMode: CameraMode = 'Fixed';
   private focusSeed = '';
   private cameraTarget = new T.Vector3(0,1, -4);
   private photo: PhotoEnvironment;
   private imageSettings = { ...defaultImage };
-  private stillCamera = false;
-  private cameraClock = 0;
-  private followHeading = 0;
+  private stillCamera = true;
+  private followSeed = '';
+  private follow = new SoftFollow();
+  private subject = new T.Vector3();
   private worldOrbit: OrbitControls;
   private groundColor = new T.Color('#ffffff');
   private studioBackground = new T.Color('#e7e3d6');
@@ -56,8 +57,6 @@ export class GardenView {
   private groundAlign = new T.Quaternion();
   private yawAlign = new T.Quaternion();
   private up = new T.Vector3(0,1,0);
-  private cameraPos = new T.Vector3();
-  private nextTarget = new T.Vector3();
   private key!: T.DirectionalLight;
   private worldClock = 0;
   private detailCamera = new T.PerspectiveCamera(33, 1, .08, 50);
@@ -127,7 +126,11 @@ export class GardenView {
     this.scene.fog = new T.Fog(this.tint, 39, 115);
     this.worldOrbit = new OrbitControls(this.worldCamera, canvas);
     this.worldOrbit.target.copy(this.cameraTarget);
-    this.worldOrbit.enableDamping = true;
+    this.worldOrbit.enableDamping = false;
+    this.worldOrbit.enabled = false;
+    this.worldOrbit.dampingFactor = .27;
+    this.worldOrbit.zoomSpeed = .47;
+    this.worldOrbit.rotateSpeed = .62;
     this.worldOrbit.minDistance = 7;
     this.worldOrbit.maxDistance = 80;
     this.worldOrbit.maxPolarAngle = Math.PI * .485;
@@ -135,8 +138,9 @@ export class GardenView {
     this.orbit = new OrbitControls(this.detailCamera, canvas);
     this.orbit.target.set(0, .98, 0);
     this.orbit.enablePan = false;
-    this.orbit.enableDamping = true;
-    this.orbit.dampingFactor = .09;
+    this.orbit.enableDamping = false;
+    this.orbit.dampingFactor = .27;
+    this.orbit.zoomSpeed = .48;
     this.orbit.minDistance = 2.65;
     this.orbit.maxDistance = 13;
     this.orbit.maxPolarAngle = Math.PI * .53;
@@ -310,14 +314,20 @@ export class GardenView {
 
   setArrange(mode?: 'Perspective' | 'Plan', navigate = false) {
     if (mode && !this.arranging) {
-      this.arrangedFrom = this.cameraMode;
+      this.arrangedFrom = { mode: this.cameraMode, frame: captureView(this.worldCamera, this.cameraTarget) };
       this.setCamera('Landscape');
     }
     const wasArranging = this.arranging;
     this.arranging = mode;
     this.navigating = navigate;
-    if (!mode && wasArranging) this.setCamera(this.arrangedFrom);
-    if (mode) this.worldOrbit.enabled = mode === 'Perspective' && navigate;
+    const saved = this.arrangedFrom;
+    if (!mode && wasArranging && saved) {
+      this.arrangedFrom = undefined;
+      this.cameraMode = saved.mode === 'Soft Follow' && !this.beings.has(this.followSeed) ? 'Fixed' : saved.mode;
+      showView(this.worldCamera, this.cameraTarget, saved.frame);
+      this.follow.reset();
+    }
+    this.syncOrbit();
     if (this.mode === 'Observe') this.scene.fog = mode === 'Plan' ? null : new T.Fog(this.tint, 39, 145);
     this.arrangeMarkers([]);
     if (!mode) { this.garden.objects.draft(); this.garden.objects.drag(); }
@@ -346,7 +356,7 @@ export class GardenView {
     this.beings.delete(seed);
     this.motions = this.motions.filter(motion => motion !== item.movement);
     this.relations.remove(item.movement, this.motions);
-    if (this.cameraMode === 'Follow' && this.focusSeed === seed) this.setCamera('Landscape');
+    if (this.cameraMode === 'Soft Follow' && this.followSeed === seed) this.setCamera('Fixed');
     return true;
   }
 
@@ -365,8 +375,7 @@ export class GardenView {
     this.garden.root.visible = observe;
     this.plinth.visible = !observe;
     this.orbit.enabled = !observe;
-    this.worldOrbit.enabled = observe && this.cameraMode === 'Landscape'
-      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
+    this.syncOrbit();
     if (!observe && this.study?.specimen.genome.seed !== specimen.genome.seed) {
       this.study?.rig.dispose();
       const item = this.resident(specimen, [0, 0], -1, true);
@@ -384,26 +393,49 @@ export class GardenView {
     }
   }
 
-  setCamera(mode: CameraMode) {
-    this.cameraMode = mode === 'Follow' && !this.beings.has(this.focusSeed) ? 'Landscape' : mode;
-    this.worldOrbit.enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape'
-      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
-    if (this.cameraMode === 'Landscape') {
-      this.worldOrbit.target.copy(this.cameraTarget);
-      this.worldOrbit.update();
+  setCamera(mode: CameraMode, seed = this.focusSeed) {
+    if (mode === 'Soft Follow') {
+      const resident = this.beings.get(seed);
+      if (resident) {
+        const p = resident.movement.pose;
+        residentFrame(this.garden.terrain, [p.x, p.z], this.worldCamera, this.cameraTarget);
+        this.followSeed = seed;
+        this.follow.reset();
+      } else mode = 'Fixed';
     }
+    this.cameraMode = mode;
+    this.syncOrbit();
+  }
+
+  private syncOrbit() {
+    const controls = this.worldOrbit;
+    const enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape'
+      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
+    if (enabled && !controls.enabled) {
+      const frame = captureView(this.worldCamera, this.cameraTarget);
+      controls.enableDamping = false;
+      controls.update();
+      showView(this.worldCamera, this.cameraTarget, frame);
+      controls.target.copy(this.cameraTarget);
+      controls.enableDamping = !this.stillCamera;
+      controls.update();
+    }
+    controls.enabled = enabled;
   }
 
   get camera() { return this.cameraMode; }
 
   resetCamera() {
-    this.cameraClock = 0;
-    this.setCamera('Landscape');
+    this.follow.reset();
+    if (!this.arranging) this.setCamera('Fixed');
     landscapeFrame(this.garden.terrain, this.worldCamera.aspect < 1, this.worldCamera.position, this.cameraTarget);
+    boundLandscapePan(this.worldCamera.position, this.cameraTarget, this.garden.terrain);
     this.worldCamera.zoom = 1;
+    this.worldCamera.fov = this.worldCamera.aspect < 1 ? 53 : 40;
     this.worldCamera.updateProjectionMatrix();
+    this.worldCamera.lookAt(this.cameraTarget);
+    this.worldCamera.updateMatrixWorld();
     this.worldOrbit.target.copy(this.cameraTarget);
-    this.worldOrbit.update();
   }
 
   zoom(factor: number) {
@@ -471,30 +503,18 @@ export class GardenView {
 
   private moveCamera(dt: number) {
     const terrain = this.garden.terrain;
-    if (this.cameraMode === 'Follow' && !this.beings.has(this.focusSeed)) this.setCamera('Landscape');
-    if (this.cameraMode === 'Landscape') {
+    if (this.cameraMode === 'Landscape' && this.worldOrbit.enabled) {
       const orbit = this.worldOrbit;
       orbit.update();
       boundLandscapePan(this.worldCamera.position, orbit.target, terrain);
       this.cameraTarget.copy(orbit.target);
       return;
     }
-    if (this.stillCamera && this.cameraMode === 'Wander') return;
-    const elapsed = Math.min(dt, .1);
-    this.cameraClock += elapsed;
-    const pos = this.cameraPos, target = this.nextTarget;
-    const resident = this.beings.get(this.focusSeed);
-    if (resident && this.cameraMode === 'Follow') {
-      const p = resident.movement.pose, delta = p.yaw - this.followHeading;
-      this.followHeading += Math.atan2(Math.sin(delta), Math.cos(delta)) * (1 - Math.exp(-elapsed * .58));
-      followFrame(p, this.followHeading, terrain, pos, target);
-    } else wanderFrame(this.cameraClock, terrain, pos, target);
-    pos.y = keptAboveLand(pos, terrain, target);
-    const k = 1 - Math.exp(-elapsed * (this.stillCamera ? .64 : 1.35));
-    this.worldCamera.position.lerp(pos, k);
-    this.worldCamera.position.y = keptAboveLand(this.worldCamera.position, terrain);
-    this.cameraTarget.lerp(target, k);
-    this.worldCamera.lookAt(this.cameraTarget);
+    if (this.cameraMode !== 'Soft Follow') return;
+    const pose = this.beings.get(this.followSeed)?.movement.pose;
+    if (!pose) { this.setCamera('Fixed'); return; }
+    this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z);
+    this.follow.advance(dt, this.worldCamera, this.cameraTarget, this.subject, terrain, this.stillCamera);
   }
   setPaused(paused: boolean) { this.paused = paused; }
   perform(action: Gesture) { this.study?.movement.perform(action); }
@@ -506,7 +526,7 @@ export class GardenView {
     const aspect = width / height;
     const portrait = aspect < 1;
     const world = this.worldCamera;
-    world.aspect=aspect;world.fov=portrait?53:40;world.updateProjectionMatrix();
+    world.aspect = aspect; world.updateProjectionMatrix();
     this.arranger.resize(aspect);
     this.applyImage();
     this.detailCamera.aspect = aspect;
