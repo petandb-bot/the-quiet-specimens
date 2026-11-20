@@ -1,3 +1,4 @@
+import { WorldComposer } from './composer/editor';
 import { ChamberSound } from '../audio/scheduler';
 import type { Action } from '../core/model';
 import { fromGardenSeed, gardenReferences, newGardenSpecimen } from './genome';
@@ -27,6 +28,7 @@ element('app').innerHTML = `
       <a class="brand" href="./" aria-label="The Quiet Specimens home"><span class="brand-mark" aria-hidden="true"><i></i></span><span>The Quiet<br>Specimens</span></a>
       <nav aria-label="Artwork controls">
         <a class="utility legacy" href="./legacy/">Legacy</a>
+        <button class="utility compose-toggle" type="button" id="compose-settings" aria-controls="compose-panel" aria-expanded="false">Compose</button>
         <button class="utility" type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">World</button>
         <button class="utility" type="button" id="life-settings" aria-controls="controls" aria-expanded="false">Life</button>
         <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
@@ -40,6 +42,7 @@ element('app').innerHTML = `
       <h1 id="title">Elsewhere</h1>
       <p class="caption-line" id="subtitle">A world continuing beyond the frame.</p>
     </div>
+    <aside class="composer" id="compose-panel" aria-label="Place composer" hidden></aside>
     <section class="land-panel" id="land-panel" aria-label="World settings" hidden>
       <label>Terrain<select id="land-kind"></select></label>
       <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
@@ -136,11 +139,12 @@ let enabled = false;
 let audition = false;
 let isPaused = media.matches;
 let graphics: GardenView | undefined;
+let composer: WorldComposer | undefined;
 let lastReading = '';
 let lastSoundReading = '';
 let noteTimer = 0;
 let eventSerial = 0;
-let panel: 'land' | 'image' | 'camera' | 'life' | undefined;
+let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | undefined;
 const cameraMode = element<HTMLSelectElement>('camera-mode');
 const cameraResident = element<HTMLSelectElement>('camera-resident');
 
@@ -185,7 +189,15 @@ function syncMotion() {
 
 try {
   graphics = new GardenView(element('canvas'), item => { if (current !== item) select(item, false); }, syncMotion, graphicsProblem);
-  for (const item of [gardenReferences[0], gardenReferences[3], gardenReferences[6], gardenReferences[1], gardenReferences[7]]) graphics.add(item);
+  composer = new WorldComposer(element('compose-panel'), graphics, () => current, () => {
+    syncMembership();
+    syncWorldControls();
+  }, (item, follow) => {
+    showPanel(follow ? undefined : 'life');
+    select(item, false);
+    setMode(follow ? 'Observe' : 'Inspect');
+    if (follow) { graphics?.setCamera('Follow'); syncMotion(); }
+  });
 } catch (error) {
   graphicsProblem(error instanceof Error ? error.message : 'The garden could not open on this device.');
 }
@@ -263,10 +275,16 @@ const landKind = element<HTMLSelectElement>('land-kind');
 for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
 landKind.value = defaultLand.kind;
 const landSeed = element<HTMLInputElement>('land-seed');
-const panels = { land: ['world-settings', 'land-panel'], life: ['life-settings', 'controls'],
+const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-settings', 'land-panel'], life: ['life-settings', 'controls'],
   image: ['image-settings', 'image-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
 function showPanel(next?: keyof typeof panels) {
+  if (next === 'compose') {
+    if (!composer) return;
+    if (mode !== 'Observe') setMode('Observe');
+  }
   panel = next;
+  composer?.open(next === 'compose');
+  element('experience').classList.toggle('composing', next === 'compose');
   for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
     const [button, content] = panels[key];
     element(content).hidden = next !== key;
@@ -281,7 +299,7 @@ const value = (id: string) => Number(element<HTMLInputElement>(id).value) / 100;
 function applyLand() {
   if (!graphics) return;
   try {
-    graphics.setLand({
+    composer?.setLand({
       seed: landSeed.value.trim() || defaultLand.seed, kind: landKind.value as TerrainKind,
       elevation: value('land-height'), roughness: value('land-rough'), openness: value('land-open'), density: value('land-density'),
     });
@@ -314,14 +332,27 @@ graphics?.setStillCamera(still.checked);
 const photoInput = element<HTMLInputElement>('land-photo');
 const imageMode = element<HTMLSelectElement>('image-mode');
 imageMode.value = defaultImage.mode;
-function applyImage() {
+function applyImage(committed = false) {
   const settings: ImageSettings = {
     mode: imageMode.value as ImageSettings['mode'], scale: value('image-scale'), x: value('image-x'), y: value('image-y'),
     horizon: value('image-horizon'), blur: value('image-blur'), color: value('image-color'), ground: value('image-ground'),
   };
   graphics?.setImage(settings);
+  if (committed) composer?.setImage(settings);
 }
-element('photo-controls').addEventListener('input', applyImage);
+function syncWorldControls() {
+  if (!composer) return;
+  const { land, image } = composer.document;
+  landKind.value = land.kind;
+  landSeed.value = land.seed;
+  imageMode.value = image.mode;
+  const values = { 'land-height': land.elevation, 'land-rough': land.roughness, 'land-open': land.openness, 'land-density': land.density,
+    'image-scale': image.scale, 'image-x': image.x, 'image-y': image.y, 'image-horizon': image.horizon, 'image-blur': image.blur,
+    'image-color': image.color, 'image-ground': image.ground };
+  for (const [id, value] of Object.entries(values)) element<HTMLInputElement>(id).value = String(Math.round(value * 100));
+}
+element('photo-controls').addEventListener('input', () => applyImage());
+element('photo-controls').addEventListener('change', () => applyImage(true));
 photoInput.addEventListener('change', () => {
   const file = photoInput.files?.[0];
   if (file && graphics) void graphics.setPhoto(file).then(loaded => {
@@ -350,10 +381,9 @@ element<HTMLFormElement>('seed-form').addEventListener('submit', event => {
 });
 click('membership', () => {
   if (!graphics) return;
-  const key = current.genome.seed;
-  if (graphics.has(key)) {
-    if (graphics.remove(key)) notice(`${current.name} was removed from the garden.`);
-  } else if (graphics.add(current)) {
+  const result = composer?.toggleResident(current);
+  if (result === 'removed') notice(`${current.name} was removed from the garden.`);
+  else if (result === 'added') {
     setMode('Observe');
     notice(`${current.name} joined the garden.`);
   }
@@ -392,7 +422,9 @@ document.addEventListener('keydown', event => {
   }
 });
 
+element<HTMLButtonElement>('compose-settings').disabled = !composer;
 sound.setSpecimen(current);
+syncWorldControls();
 syncSelection();
 pause(isPaused);
 setMode('Observe');

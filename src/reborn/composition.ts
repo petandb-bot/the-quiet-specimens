@@ -1,15 +1,21 @@
 import { clamp, random } from '../core/random';
 import type { GroundPoint, Obstacle } from './motion';
+import type { PlaceRole } from './world/document';
 
 export interface Landmark extends Obstacle {
   id: string;
-  kind: 'arch' | 'monolith' | 'ring' | 'stones';
+  kind: 'arch' | 'monolith' | 'ring' | 'stones' | 'flora' | 'kinetic';
   yaw: number;
   scale: number;
   distant: boolean;
+  height?: number;
 }
 type Level = { seed: string; kind: string; openness: number; density: number };
-export type PointOfInterest = { id: string; position: GroundPoint; shelter: number };
+export type PointOfInterest = {
+  id: string; position: GroundPoint; shelter: number;
+  center?: GroundPoint; radius?: number; weight?: number;
+  role?: PlaceRole;
+};
 
 export function composeLandscape(settings: Level, slope: (x: number, z: number) => number) {
   const rng = random('elsewhere/composition/2/' + settings.seed);
@@ -31,7 +37,7 @@ export function composeLandscape(settings: Level, slope: (x: number, z: number) 
     z += rng.range(-2.0, 2.0);
     const scale = size * rng.range(.83, 1.20);
     const extent = kind === 'arch' ? 1.16 : kind === 'stones' ? 1.63 : 1.27;
-    landmarks.push({ id: kind + '-' + landmarks.length, kind, x, z, scale, distant, yaw: rng.range(-.7, .7), radius: scale * extent });
+    landmarks.push({ id: distant ? 'distant-' + kind : kind + '-' + landmarks.length, kind, x, z, scale, distant, yaw: rng.range(-.7, .7), radius: scale * extent });
   }
   const visible = Math.round(3 + settings.density * 5);
   for (const [position, kind, size] of positions.slice(0, visible)) place(position, kind, size);

@@ -1,6 +1,6 @@
 # The Quiet Specimens — Reborn
 
-**Elsewhere · B2.1 World Refinement / B3 Living Territories (preview)**
+**Elsewhere · B4.1 Personal Places (preview)**
 
 生きているはずのない物体が、自分の意思で動いているように見える地平線まで続く風景です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
 
@@ -18,6 +18,14 @@ npm run build
 ```
 
 開発時は Vite が表示する URL を開きます。静的ホスティングには `dist/` を配信します。ビルド済みの確認には `npm run preview` を使います。
+
+## Personal Places
+
+**Compose** で彫刻を選び、地面に置いてドラッグで動かします。**Plan** は真上から配置を見渡す視点です。**Perspective** の **Navigate** では鑑賞カメラを動かせます。**Places** では、休息場所や興味を引く場所を地面に作ったり、物体に結びつけたりできます。**Life** から住民の出発地点や Home を指定できます。
+
+編集を閉じると住民の活動が再開します。編集は現在のブラウザセッション内で保持されます。
+
+[Place Composer](docs/WORLD_COMPOSER.md) · [場所の役割](docs/PLACE_SYSTEM.md) · [世界データ](docs/WORLD_DOCUMENT.md)
 
 ## 操作
 

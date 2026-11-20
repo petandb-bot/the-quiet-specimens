@@ -1,13 +1,9 @@
 import * as T from 'three';
 import { clamp } from '../core/random';
 
-export interface ImageSettings {
-  mode: 'Backdrop' | 'Atmosphere';
-  scale: number; x: number; y: number; horizon: number; blur: number; color: number; ground: number;
-}
-export const defaultImage: ImageSettings = {
-  mode: 'Backdrop', scale: 1, x: 0, y: 0, horizon: .5, blur: .09, color: .52, ground: .73,
-};
+export { defaultImage } from './world/image-settings';
+export type { ImageSettings } from './world/image-settings';
+import type { ImageSettings } from './world/image-settings';
 
 export function imageFrame(viewAspect: number, imageAspect: number, s: ImageSettings) {
   const ratio = viewAspect / imageAspect;

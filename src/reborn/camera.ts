@@ -58,7 +58,7 @@ function landClearance(position: Vector3, terrain: Terrain, target?: Vector3) {
     const distance = Math.hypot(position.x - item.x, position.z - item.z);
     if (distance >= reach) continue;
     const fade = 1 - clamp((distance - item.radius) / (reach - item.radius));
-    const top = terrain.height(item.x, item.z) + item.scale * (item.kind === 'stones' ? 1.25 : 4.65);
+    const top = terrain.height(item.x, item.z) + (item.height ?? 0) + item.scale * (item.kind === 'stones' ? 1.25 : 4.65);
     y = Math.max(y, mix(y, top + 1.1, fade * fade));
   }
   if (target) {

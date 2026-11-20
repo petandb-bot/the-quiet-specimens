@@ -127,6 +127,25 @@ export class GardenMotion {
     this.journey();
   }
 
+  updateEnvironment(obstacles: readonly Obstacle[], terrain: MotionField) {
+    this.obstacles = obstacles;
+    this.terrain = terrain;
+    const changed = this.territory?.updateField(terrain);
+    const interest = this.destination?.interest;
+    if (this.pose.phase === 'Explore' && ((interest && changed?.has(interest)) || !this.walkable(this.target))) this.journey();
+  }
+
+  updateHabitat(home?: GroundPoint, preferred?: GroundPoint, start?: GroundPoint) {
+    if (home) this.home = home;
+    this.territory?.setHabitat(home, preferred);
+    if (start) {
+      this.pose.x = start[0]; this.pose.z = start[1];
+      this.vx = 0; this.vz = 0;
+      this.endResponse();
+    }
+    if (start || this.pose.phase === 'Explore') this.journey();
+  }
+
   private walkable([x, z]: GroundPoint) {
     const slopeLimit = this.genome.plan === 'RELAY' ? .76 : .58;
     return Math.abs(x) <= this.limit.x && Math.abs(z) <= this.limit.z
@@ -255,6 +274,15 @@ export class GardenMotion {
     const activity = this.territory ? .84 + this.territory.traits.activity * .27 : 1;
     let speed = pose.phase === 'Explore' ? pace[this.genome.plan] * this.genome.gait * smooth(distance / .69) * intensity * activity : 0;
     if (pose.phase === 'Act' && pose.gesture === 'Hop') speed = pose.action * 1.36;
+    if (speed > .05) {
+      let quiet = 0;
+      for (const point of this.terrain?.points ?? []) {
+        if (point.role !== 'Quiet' || !point.center || !point.radius) continue;
+        const ratio = Math.hypot(pose.x - point.center[0], pose.z - point.center[1]) / point.radius;
+        quiet = Math.max(quiet, (1 - clamp(ratio)) * (point.weight ?? 0));
+      }
+      speed *= 1 - quiet * .50;
+    }
     if (this.terrain && this.genome.plan !== 'VESSEL') speed *= 1 / (1 + this.terrain.slope(pose.x,pose.z) * 1.8);
     const factor = distance > .001 ? speed / distance : 0;
     let tx = dx * factor, tz = dz * factor;
