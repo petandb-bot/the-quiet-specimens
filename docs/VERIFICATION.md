@@ -56,3 +56,44 @@ See [Elsewhere](ELSEWHERE.md). Pure terrain and motion logic smoke-tested using 
 - In 620 simulated seconds, all nine reference residents stayed inside the field and displayed exploration and rest. The test captures returns to home, object visits, encounters, follow and imitation, verifies pair cooldown, and checks that spatial memory and recent events stay bounded. Additional tests verify that imitation cannot supply a new source gesture, and that pursuit expires or ends on removal.
 - A DOM emulation pass exercised panel switching, focus restoration, Hide/Exit View, reference and seed replay, Action controls, the Legacy link, and the WebGL 2 fallback. The existing audio check rendered four synthesis voices at 44.1 and 48 kHz through an offline Web Audio implementation. All eight checks passed, with absolute peaks from 0.02055 to 0.21761.
 - The managed preview relay timed out before opening the branch in Chromium. Actual WebGL shader compilation and photograph compositing, visual review of the layouts and camera transitions, screenshots, GPU and frame timing over a live ten-minute session, interactive audio, and physical iPhone Safari checks remain open. The automated checks above exercise CPU geometry, behavior, and resource lifecycles.
+
+## Elsewhere B2.1 / B3 merge review
+
+The review started from `a18ede9284ba83f91ebeb981b41a6eb40a931c4c` on `elsewhere-expanded-world`. A clean install, all 40 Vitest tests, and the TypeScript/Vite production build passed. Two new camera tests verify that clamped pans preserve the complete camera-to-target vector through repeated pan, turn, and zoom operations, and that landmark clearance translates the entire orbit.
+
+In Landscape, the target stays within the 60×60 activity area and normally within 0.42–14 units above the local ground. Terrain and landmark clearance can raise the whole orbit when needed. With real right-drag pans, left-drag turns, and wheel zoom in Chromium, 96 instrumented frames included 28 horizontal-boundary hits and eight vertical-limit hits. The pan correction changed the camera-to-target vector by less than 4 × 10⁻¹⁵ world units.
+
+### Live WebGL and interaction
+
+Playwright drove Chromium 156.0.8078.79 with WebGL 2 through ANGLE/SwiftShader. The desktop viewport was 1280 × 760. The production build rendered Rolling Field, Terraces, and Hollow Land. Applying and regenerating land kept the resident count. Adding and removing a resident worked, including the fallback from Follow to Landscape when its subject was removed. Landscape, Wander, Follow, Inspect, the Fold gesture in Action, and the View toggle were exercised in the browser.
+
+The browser compiled and linked the GLSL in `src/reborn/photo.ts` and `src/reborn/landscape.ts`. A JPEG loaded as a Backdrop, Atmosphere applied its colors, a different PNG replaced it, and clearing the image restored the regular landscape. The first visual pass showed overlapping hill outlines where the translucent terrain crossed the photo. The final Backdrop uses the closest terrain surface before applying the fade. A second browser pass confirmed that the depth-only draw was active with Backdrop, paused in Atmosphere, and that the two shaders linked without errors after the change. The new capture shows the photographed ground blending into the near terrain without the overlapping hill outlines.
+
+An instrumented browser run with lit specimens checked contact over thirty simulated seconds on Terraces. Across 242 non-hop HINGE samples on sloped ground, the lowest foot probe stayed between 0.048 and 0.171 units above its sampled surface. RELAY node pivots held their ground-relative offsets across 2,765 samples. The VESSEL pod center varied between 1.09 and 1.31 units above the local surface. This measures points on the rendered rigs. It leaves small mesh-level contact differences and hardware-dependent frame pacing for physical-device review.
+
+The full desktop run reached 29,248 draw calls without a WebGL context loss or shader error. Sound and Audition both produced nonzero samples at the browser's master output. Ending Audition restored the prior sound state whether the sound had been on or off. The Legacy link opened `/legacy/` and that page rendered WebGL. At an emulated 390 px touch viewport, the camera and Life controls were usable without horizontal page overflow.
+
+### Captures
+
+All captures are 1280 × 760 browser frames with controls hidden.
+
+| View | Capture |
+| --- | --- |
+| Landscape / Rolling Field | [Landscape](screenshots/elsewhere-final/landscape.jpg) |
+| Terraces | [Terraces](screenshots/elsewhere-final/terraces.jpg) |
+| Hollow Land | [Hollow Land](screenshots/elsewhere-final/hollow-land.jpg) |
+| Photo Backdrop | [Photo Backdrop](screenshots/elsewhere-final/photo-backdrop.jpg) |
+| Follow | [Follow](screenshots/elsewhere-final/follow.jpg) |
+| Inspect | [Inspect](screenshots/elsewhere-final/inspect.jpg) |
+
+The photo used for the composite is *Panoramic View From Rocknest Position of Curiosity Mars Rover*, credited to NASA/JPL-Caltech/Malin Space Science Systems. [NASA image record](https://images.nasa.gov/details/PIA16453)
+
+The captures show the open foreground, the scale difference between residents and landmarks, and the distant structures fading into the sky. Terraces keeps visible breaks in relief, Hollow Land places a larger silhouette in the foreground, and Follow frames nearby life as well as the selected resident. Lighting and material colors were reviewed in these views and in the Inspect close-up.
+
+### Continuous integration
+
+The [Build and test workflow](../.github/workflows/ci.yml) runs `npm ci`, `npm test`, and `npm run build` on pull requests and on pushes to `main`. All three commands passed on the application and workflow revision. [GitHub Actions run](https://github.com/petandb-bot/the-quiet-specimens/actions/runs/44686836842)
+
+### Remaining verification
+
+Physical iPhone Safari, hardware-GPU performance, extended live-session GPU memory, and recovery from forced WebGL context loss are still open. The earlier 620-second run covers simulation behavior. This browser pass covers rendering and interaction in Chromium with a software renderer.
