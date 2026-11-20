@@ -117,13 +117,14 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#5
   .identity{padding-inline:20px}
 }
 @media(max-width:625px){
-  .experience{min-height:660px}
+  .experience{min-height:0}
   .caption{top:78px;left:15px}
   .caption-line{font-size:.84rem}
   .identity{padding:max(10px,env(safe-area-inset-top)) 12px 9px;gap:9px}
   .identity nav{gap:4px}
   .identity .utility{padding-inline:9px;min-height:43px}
   .control-dock{width:calc(100% - 22px);bottom:max(10px,env(safe-area-inset-bottom))}
+  .control-dock .workbench{max-height:calc(100svh - 185px);overflow:auto;overscroll-behavior:contain}
   .workbench{grid-template-columns:1fr 1.12fr;gap:8px;padding:10px}
   .specimen-title h2{font-size:1.38rem}
   .specimen-selection select,.specimen-actions button,.gesture select{min-height:44px}
@@ -131,7 +132,7 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#5
   .specimen-actions{grid-column:1/-1;padding-top:7px;border-top:1px solid #b8ac91}
   .specimen-actions .occupancy{text-align:left}
   .mode-group button,.pause{min-height:42px;padding-inline:9px}
-  .seed form{left:auto;right:0}
+  .seed form{position:static;width:100%;margin-top:6px;padding:7px}
   .notice{top:68px;right:12px}
 }
 @media(max-width:330px){.brand-mark{display:none}.identity .utility{padding-inline:6px}.specimen-title h2{font-size:1.22rem}}

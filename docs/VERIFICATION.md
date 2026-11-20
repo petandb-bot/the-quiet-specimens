@@ -47,3 +47,12 @@ The Reborn suite verifies seeds and reference presets, finite geometry after ani
 ## Elsewhere B1/B2 preview
 
 See [Elsewhere](ELSEWHERE.md). Pure terrain and motion logic smoke-tested using type-stripped JavaScript from the branch. Full npm test/build, GPU rendering, shader compilation, UI interactions and physical mobile tests were not run. Do not treat Phase A verification as verification of Elsewhere.
+
+## Elsewhere B2.1 / B3 review
+
+- On the incoming PR branch, `npm ci`, all 26 existing Vitest checks, and the TypeScript/Vite production build passed. The updated branch passes 37 tests and the production build. The build emits both the Elsewhere and `/legacy/` entry points.
+- World checks trace the Three.js ground mesh on both halves of the terrain triangles and compare hit heights with motion queries. The tests cover three land types, 24 additional seeds, obstacle retreat, camera framing and clearance, HINGE and RELAY contact on flat land, slopes and steps, and geometry/material disposal across terrain replacement.
+- Photo checks cover portrait and landscape cropping, offsets, the backdrop/atmosphere visibility switch, replacement, clearing while a decode is pending, size limits, Blob URL cleanup, and texture disposal. Image decode and canvas sampling use test doubles for these checks.
+- In 620 simulated seconds, all nine reference residents stayed inside the field and displayed exploration and rest. The test captures returns to home, object visits, encounters, follow and imitation, verifies pair cooldown, and checks that spatial memory and recent events stay bounded. Additional tests verify that imitation cannot supply a new source gesture, and that pursuit expires or ends on removal.
+- A DOM emulation pass exercised panel switching, focus restoration, Hide/Exit View, reference and seed replay, Action controls, the Legacy link, and the WebGL 2 fallback. The existing audio check rendered four synthesis voices at 44.1 and 48 kHz through an offline Web Audio implementation. All eight checks passed, with absolute peaks from 0.02055 to 0.21761.
+- The managed preview relay timed out before opening the branch in Chromium. Actual WebGL shader compilation and photograph compositing, visual review of the layouts and camera transitions, screenshots, GPU and frame timing over a live ten-minute session, interactive audio, and physical iPhone Safari checks remain open. The automated checks above exercise CPU geometry, behavior, and resource lifecycles.

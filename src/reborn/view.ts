@@ -14,6 +14,7 @@ import { GardenMotion, limitFrame, stepSeconds } from './motion';
 import type { Gesture, GroundPoint } from './motion';
 import { bodyPlans, buildSpecimen } from './morphology';
 import type { RigGround } from './morphology';
+import { GardenRelations } from './relations';
 
 export type GardenMode = 'Observe' | 'Inspect' | 'Action';
 export const worldLimit = 9;
@@ -54,6 +55,8 @@ export class GardenView {
   private garden;
   private plinth = inspectionPlinth();
   private beings = new Map<string, Resident>();
+  private motions: GardenMotion[] = [];
+  private relations = new GardenRelations(defaultLand.seed);
   private study?: Resident;
   private mode: GardenMode = 'Observe';
   private paused = false;
@@ -116,7 +119,6 @@ export class GardenView {
     this.worldOrbit.minDistance = 7;
     this.worldOrbit.maxDistance = 80;
     this.worldOrbit.maxPolarAngle = Math.PI * .485;
-    this.resetCamera();
     this.detailCamera.position.set(3.8, 2.7, 5.1);
     this.orbit = new OrbitControls(this.detailCamera, canvas);
     this.orbit.target.set(0, .98, 0);
@@ -170,6 +172,7 @@ export class GardenView {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
+    this.resetCamera();
     this.renderer.setAnimationLoop(this.frame);
   }
 
@@ -186,7 +189,7 @@ export class GardenView {
     const rig = buildSpecimen(specimen.genome);
     const radius = bodyPlans[specimen.genome.plan].radius(specimen.genome);
     const terrain = this.garden.terrain;
-    const movement = new GardenMotion(specimen.genome, anchor, solo ? [] : terrain.landmarks, radius, solo ? undefined : { bounds:worldBounds, height:terrain.height, slope:terrain.slope });
+    const movement = new GardenMotion(specimen.genome, anchor, solo ? [] : terrain.landmarks, radius, solo ? undefined : { bounds: worldBounds, height: terrain.height, slope: terrain.slope, points: terrain.points });
     const resident = { specimen, rig, slot, movement, ground: { height: terrain.height, floor: 0 }, terrainY: terrain.height(movement.pose.x, movement.pose.z), renderedAt: 0 };
     rig.root.userData.seed = specimen.genome.seed;
     this.pose(resident, solo);
@@ -230,6 +233,7 @@ export class GardenView {
     const item = this.resident(specimen, anchors[slot], slot);
     this.site.add(item.rig.root);
     this.beings.set(key, item);
+    this.motions.push(item.movement);
     return true;
   }
 
@@ -242,6 +246,8 @@ export class GardenView {
     if (!item) return false;
     item.rig.dispose();
     this.beings.delete(seed);
+    this.motions = this.motions.filter(motion => motion !== item.movement);
+    this.relations.remove(item.movement, this.motions);
     if (this.cameraMode === 'Follow' && this.focusSeed === seed) this.setCamera('Landscape');
     return true;
   }
@@ -274,6 +280,8 @@ export class GardenView {
     if (observe && this.study) {
       this.study.rig.dispose();
       this.study = undefined;
+      for (const item of this.beings.values()) this.pose(item);
+      this.garden.animate(this.worldClock);
     }
   }
 
@@ -304,7 +312,11 @@ export class GardenView {
     lens.updateProjectionMatrix();
   }
 
-  setStillCamera(still: boolean) { this.stillCamera = still; }
+  setStillCamera(still: boolean) {
+    this.stillCamera = still;
+    this.worldOrbit.enableDamping = !still;
+    this.orbit.enableDamping = !still;
+  }
 
   setLand(settings: LandSettings) {
     const next = buildLandscape(this.scene, settings);
@@ -314,12 +326,14 @@ export class GardenView {
     this.applyImage();
     for (const item of this.beings.values()) {
       const t = next.terrain, radius = bodyPlans[item.specimen.genome.plan].radius(item.specimen.genome);
-      item.movement = new GardenMotion(item.specimen.genome, t.anchors[item.slot], t.landmarks, radius, { bounds: worldBounds, height: t.height, slope: t.slope });
+      item.movement = new GardenMotion(item.specimen.genome, t.anchors[item.slot], t.landmarks, radius, { bounds: worldBounds, height: t.height, slope: t.slope, points: t.points });
       item.ground.height = t.height;
       item.terrainY = t.height(item.movement.pose.x, item.movement.pose.z);
       item.renderedAt = 0;
       this.pose(item);
     }
+    this.motions = Array.from(this.beings.values(), item => item.movement);
+    this.relations = new GardenRelations(next.terrain.settings.seed);
     this.resetCamera();
   }
 
@@ -411,12 +425,16 @@ export class GardenView {
     this.carry = remainder;
     const observe = this.mode === 'Observe';
     if (!this.paused && steps) {
-      const active = observe ? this.beings.values() : this.study ? [this.study] : [];
-      for (const item of active) {
-        for (let i = 0; i < steps; i++) item.movement.step();
-        this.pose(item, !observe);
+      for (let i = 0; i < steps; i++) {
+        for (const motion of this.motions) motion.step(stepSeconds, this.motions);
+        this.relations.step(stepSeconds, this.motions);
+        this.study?.movement.step();
       }
-      if (observe) { this.worldClock += steps * stepSeconds; this.garden.animate(this.worldClock); }
+      this.worldClock += steps * stepSeconds;
+      if (observe) {
+        for (const item of this.beings.values()) this.pose(item);
+        this.garden.animate(this.worldClock);
+      } else if (this.study) this.pose(this.study, true);
     }
     if (!observe) this.orbit.update();
     else this.moveCamera(delta);

@@ -137,6 +137,7 @@ let audition = false;
 let isPaused = media.matches;
 let graphics: GardenView | undefined;
 let lastReading = '';
+let lastSoundReading = '';
 let noteTimer = 0;
 let eventSerial = 0;
 let panel: 'land' | 'image' | 'camera' | 'life' | undefined;
@@ -170,10 +171,14 @@ function syncMotion() {
   const pose = graphics?.getPose(current.genome.seed);
   const reading = !pose ? 'Outside the garden'
     : isPaused ? 'Motion paused'
-    : pose.phase === 'Act' ? pose.gesture : pose.phase;
-  if (reading === lastReading) return;
-  lastReading = reading;
-  element('motion-reading').textContent = reading;
+    : pose.social ?? (pose.phase === 'Act' ? pose.gesture : pose.phase === 'Explore' ? pose.intent : pose.phase);
+  if (reading !== lastReading) {
+    lastReading = reading;
+    element('motion-reading').textContent = reading;
+  }
+  const audioReading = isPaused ? 'Paused' : pose?.phase === 'Act' ? pose.gesture : pose?.phase ?? 'Absent';
+  if (audioReading === lastSoundReading) return;
+  lastSoundReading = audioReading;
   const sonotype = { Act: 'DISPLAY', Rest: 'REST', Explore: 'CRUISE', Hesitate: 'HOVER', Recover: 'HOVER' } satisfies Record<MotionPose['phase'], Action>;
   sound.behavior(pose ? sonotype[pose.phase] : 'REST', ++eventSerial);
 }
@@ -220,6 +225,7 @@ function select(item: GardenSpecimen, inspectIfAbsent: boolean) {
   current = item;
   sound.setSpecimen(item);
   lastReading = '';
+  lastSoundReading = '';
   syncSelection();
   setMode(inspectIfAbsent && mode === 'Observe' && !graphics?.has(item.genome.seed) ? 'Inspect' : mode);
 }
@@ -240,6 +246,7 @@ function setMode(next: GardenMode) {
     Action: 'Choose a gesture and watch its preparation and recovery.',
   }[mode];
   lastReading = '';
+  lastSoundReading = '';
   syncMotion();
 }
 
@@ -378,7 +385,11 @@ click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
-  else if (event.key === 'Escape') showPanel();
+  else if (event.key === 'Escape' && panel) {
+    const [button] = panels[panel];
+    showPanel();
+    element(button).focus();
+  }
 });
 
 sound.setSpecimen(current);
