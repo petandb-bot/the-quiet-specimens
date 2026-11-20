@@ -1,10 +1,10 @@
 # The Quiet Specimens — Reborn
 
-**Phase A · Art & Motion Study**
+**Elsewhere · B1/B2 Expanded World (preview)**
 
-生きているはずのない物体が、自分の意思で動いているように見える小さな庭園です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
+生きているはずのない物体が、自分の意思で動いているように見える地平線まで続く風景です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
 
-![Artificial Garden の WebGL キャプチャ](public/downloads/reborn-artificial-garden.jpg)
+以前の Phase A の画面は [こちら](public/downloads/reborn-artificial-garden.jpg)。Elsewhere の実機キャプチャは未取得です。
 
 ## 起動
 
@@ -23,7 +23,7 @@ npm run build
 
 - **Observe** で複数の個体が暮らす庭園を眺めます。個体をクリックまたはタップすると、選択した個体が反応します。
 - **Reference specimens** から9体を選べます。**New specimen** で新規生成し、**Seed** を開いて同じシードを入力すると個体を再生成できます。
-- **Inspect** は回転・拡大、**Action** は身構えや回復を含むアクションの確認です。**Add to world** と **Remove from world** で最大6体を入れ替えられます。
+- **Inspect** は回転・拡大、**Action** は身構えや回復を含むアクションの確認です。**Add to world** と **Remove from world** で最大9体を入れ替えられます。
 - **Sound on** と **Audition** は、選択した1体の音を聴く操作です。**View** は鑑賞用に操作欄を隠します。**Pause** は動きを止めます。
 - **Legacy** は同じ配信元の `/legacy/` にある従来版です。写真からの生成、コレクション、JSON 入出力、既存の IndexedDB 保存にアクセスできます。
 
@@ -42,3 +42,7 @@ Phase A は WebGL 2 を使います。新しい庭園の配置はセッション
 - [Body plans](docs/BODY_PLANS.md)
 - [Motion design](docs/MOTION_DESIGN.md)
 - [Verification](docs/VERIFICATION.md)
+
+## Elsewhere preview
+
+World から Landscape / Wander / Follow、地形の種類・高低差・粗さ・Seedを変更できます。Apply land / New terrain で個体を維持したまま再配置します。Photo backdrop はローカル画像を遠景として表示し、抽出色で地面と霧を調整します。写真はセッションのみ。音響は従来通り選択した1体のみです。詳細は [Elsewhere](docs/ELSEWHERE.md)。

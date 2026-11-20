@@ -5,6 +5,10 @@ import type { GardenSpecimen } from './genome';
 import { bodyPlans } from './morphology';
 import type { Gesture, MotionPose } from './motion';
 import { GardenView, worldLimit } from './view';
+import type { CameraMode } from './view';
+import { defaultLand, terrainKinds } from './terrain';
+import type { TerrainKind } from './terrain';
+import { freshSeed } from '../core/random';
 import type { GardenMode } from './view';
 import './style.css';
 
@@ -21,15 +25,27 @@ element('app').innerHTML = `
       <a class="brand" href="./" aria-label="The Quiet Specimens home"><span class="brand-mark" aria-hidden="true"><i></i></span><span>The Quiet<br>Specimens</span></a>
       <nav aria-label="Artwork controls">
         <a class="utility legacy" href="./legacy/">Legacy</a>
+        <button class="utility" type="button" id="world-settings" aria-expanded="false">World</button>
         <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
         <button class="utility" type="button" id="view">View</button>
       </nav>
     </header>
     <div class="caption" id="caption">
-      <p class="label">REBORN / ART &amp; MOTION STUDY</p>
-      <h1 id="title">Artificial Garden</h1>
-      <p class="caption-line" id="subtitle">A small world inhabited by things<br>that should not be alive.</p>
+      <p class="label">ELSEWHERE / FIELD STUDY</p>
+      <h1 id="title">Elsewhere</h1>
+      <p class="caption-line" id="subtitle">A world continuing beyond the frame.</p>
     </div>
+    <section class="land-panel" id="land-panel" aria-label="World settings" hidden>
+      <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
+      <label>Terrain<select id="land-kind"></select></label>
+      <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
+      <label>Roughness<input id="land-rough" type="range" min="0" max="100" value="26"></label>
+      <label>World seed<input id="land-seed" maxlength="48" value="ELSEWHERE-01"></label>
+      <div class="land-buttons"><button id="land-apply" type="button">Apply land</button><button id="land-new" type="button">New terrain</button></div>
+      <label>Photo backdrop<input id="land-photo" type="file" accept="image/*"></label>
+      <button id="land-clear" type="button">Clear photo</button>
+      <p class="land-note">Terrain changes keep your specimens. Photo stays in this session.</p>
+    </section>
     <button class="utility exit" type="button" id="exit" hidden>Exit view</button>
     <div class="notice" id="notice" role="status" hidden></div>
 
@@ -131,7 +147,7 @@ function syncMotion() {
 
 try {
   graphics = new GardenView(element('canvas'), item => { if (current !== item) select(item, false); }, syncMotion, graphicsProblem);
-  for (const item of [gardenReferences[0], gardenReferences[3], gardenReferences[6]]) graphics.add(item);
+  for (const item of [gardenReferences[0], gardenReferences[3], gardenReferences[6], gardenReferences[1], gardenReferences[7]]) graphics.add(item);
 } catch (error) {
   graphicsProblem(error instanceof Error ? error.message : 'The garden could not open on this device.');
 }
@@ -176,7 +192,7 @@ function setMode(next: GardenMode) {
     button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
   });
   element('experience').dataset.mode = mode;
-  element('title').textContent = mode === 'Observe' ? 'Artificial Garden' : current.name;
+  element('title').textContent = mode === 'Observe' ? 'Elsewhere' : current.name;
   element('subtitle').hidden = mode !== 'Observe';
   element('gesture').hidden = mode !== 'Action';
   element('guide').textContent = {
@@ -197,6 +213,23 @@ function pause(next: boolean) {
 }
 
 const click = (id: string, callback: () => void) => element(id).addEventListener('click', callback);
+const landKind=element<HTMLSelectElement>('land-kind');
+for(const kind of terrainKinds) landKind.add(new Option(kind,kind));
+landKind.value=defaultLand.kind;
+const landSeed=element<HTMLInputElement>('land-seed');
+function landPanel(open:boolean){element('land-panel').hidden=!open;element('world-settings').setAttribute('aria-expanded',String(open));}
+click('world-settings',()=>landPanel(element('land-panel').hidden));
+function applyLand(){
+  if(!graphics)return;
+  try{graphics.setLand({seed:landSeed.value.trim()||defaultLand.seed,kind:landKind.value as TerrainKind,elevation:Number(element<HTMLInputElement>('land-height').value)/100,roughness:Number(element<HTMLInputElement>('land-rough').value)/100});setMode('Observe');notice('Landscape regenerated.');}
+  catch(error){notice(error instanceof Error?error.message:'Terrain could not be created.');}
+}
+click('land-apply',applyLand);
+click('land-new',()=>{landSeed.value=freshSeed();applyLand();});
+element<HTMLSelectElement>('camera-mode').addEventListener('change',event=>{graphics?.setCamera((event.currentTarget as HTMLSelectElement).value as CameraMode);setMode('Observe');});
+const photoInput=element<HTMLInputElement>('land-photo');
+photoInput.addEventListener('change',()=>{const file=photoInput.files?.[0];if(file&&graphics)void graphics.setPhoto(file).then(()=>{setMode('Observe');}).catch(error=>notice(error instanceof Error?error.message:'Photo could not be loaded.'));photoInput.value='';});
+click('land-clear',()=>graphics?.clearPhoto());
 document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(button =>
   button.addEventListener('click', () => setMode(button.dataset.mode as GardenMode)));
 reference.addEventListener('change', () => {
@@ -238,6 +271,7 @@ click('audition', () => {
 });
 
 function viewing(show: boolean) {
+  if(show)landPanel(false);
   for (const name of ['identity', 'caption', 'controls']) element(name).hidden = show;
   element('exit').hidden = !show;
   element(show ? 'exit' : 'view').focus();
@@ -246,6 +280,7 @@ click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
+  else if(event.key==='Escape')landPanel(false);
 });
 
 sound.setSpecimen(current);

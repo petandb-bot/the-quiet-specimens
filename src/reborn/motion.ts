@@ -13,6 +13,7 @@ export type Gesture = typeof gestures[GardenPlan][number];
 export type Phase = 'Explore' | 'Hesitate' | 'Act' | 'Recover' | 'Rest';
 export type GroundPoint = readonly [x: number, z: number];
 export type Obstacle = { x: number; z: number; radius: number };
+export interface MotionField { bounds: { x:number; z:number }; height: (x:number,z:number)=>number; slope: (x:number,z:number)=>number }
 export interface MotionPose {
   x: number; z: number; yaw: number; speed: number; time: number; stride: number;
   phase: Phase; gesture: Gesture; action: number; preparation: number; recovery: number;
@@ -40,9 +41,11 @@ export class GardenMotion {
   constructor(
     private genome: GardenGenome, anchor: GroundPoint,
     private obstacles: readonly Obstacle[] = [], private radius = .68,
+    private terrain?: MotionField,
   ) {
     const clearance = Math.max(0, radius - .75);
-    this.limit = { x: field.x - clearance, z: field.z - clearance };
+    const limits = terrain?.bounds ?? field;
+    this.limit = { x: limits.x - clearance, z: limits.z - clearance };
     this.home = [clamp(anchor[0], -this.limit.x, this.limit.x), clamp(anchor[1], -this.limit.z, this.limit.z)];
     this.target = this.home;
     this.rng = random(genome.seed + '/motion');
@@ -56,9 +59,12 @@ export class GardenMotion {
 
   private turn() {
     for (let attempt = 0; attempt < 8; attempt++) {
-      const reach = .8 + this.genome.curiosity * 1.35;
-      const x = clamp(this.home[0] + this.rng.range(-reach, reach), -this.limit.x, this.limit.x);
-      const z = clamp(this.home[1] + this.rng.range(-reach, reach), -this.limit.z, this.limit.z);
+      const reach = this.terrain ? 4 + this.genome.curiosity * 9 : .8 + this.genome.curiosity * 1.35;
+      // A wandering resident chooses targets around its current position, occasionally returning home.
+      const center = this.terrain && this.rng.next() > .13 ? [this.pose.x, this.pose.z] : this.home;
+      const x = clamp(center[0] + this.rng.range(-reach, reach), -this.limit.x, this.limit.x);
+      const z = clamp(center[1] + this.rng.range(-reach, reach), -this.limit.z, this.limit.z);
+      if (this.terrain && this.genome.plan !== 'VESSEL' && this.terrain.slope(x,z) > .85) continue;
       if (!this.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.radius + this.radius * .43)) {
         this.target = [x, z];
         break;
@@ -97,7 +103,7 @@ export class GardenMotion {
         case 'Hesitate': this.phase('Act', this.genome.plan === 'HINGE' ? .52 : .86); break;
         case 'Act': this.phase('Recover', .62 + this.genome.patience * .55); break;
         case 'Recover': this.phase('Rest', this.rng.range(.32, 1.15) + this.genome.patience); break;
-        case 'Rest': this.turn(); this.phase('Explore', this.rng.range(1.6, 4.8)); break;
+        case 'Rest': this.turn(); this.phase('Explore', this.terrain ? this.rng.range(5, 13) : this.rng.range(1.6, 4.8)); break;
       }
     }
     const t = clamp(this.elapsed / this.duration);
@@ -110,6 +116,7 @@ export class GardenMotion {
     const baseline = { HINGE: .88, VESSEL: .64, RELAY: 1.04 }[this.genome.plan];
     let speed = pose.phase === 'Explore' ? baseline * this.genome.gait * smooth(distance / .69) : 0;
     if (pose.phase === 'Act' && pose.gesture === 'Hop') speed = pose.action * 1.36;
+    if (this.terrain && this.genome.plan !== 'VESSEL') speed *= 1 / (1 + this.terrain.slope(pose.x,pose.z) * 1.8);
     const factor = distance > .001 ? speed / distance : 0;
     let tx = dx * factor, tz = dz * factor;
     // A soft perimeter around scenic structures keeps waists and feet out of the plinths.

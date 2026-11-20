@@ -8,3 +8,7 @@
 6. **F · Artificial Life** — Explore inheritance, generations, growth, and additional mutations and bodies.
 
 The previous aquarium and Specimen Lab have their own entry at `/legacy/`.
+
+## Elsewhere direction
+
+B1 Expanded World / B2 Personal Landscapes are introduced as an unverified preview on the Elsewhere branch. Next: visual review and terrain traversal refinement, B3 Living Territories, B4 Environmental Time, B5 Sound Ecology, B6 World Composer. Legacy and creature archive remain separate.
