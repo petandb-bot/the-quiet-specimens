@@ -31,6 +31,11 @@ export function buildLandscape(scene: T.Scene, settings: LandSettings) {
   groundMat.customProgramCacheKey=()=> 'elsewhere-ground-photo-fade';
   const ground=new T.Mesh(geometry,groundMat);
   ground.receiveShadow=true;ground.renderOrder=-10;root.add(ground);
+  // Resolve the nearest terrain surface before its translucent photo blend.
+  const groundDepth = new T.Mesh(geometry, new T.MeshBasicMaterial({ colorWrite: false }));
+  groundDepth.renderOrder = -11;
+  groundDepth.visible = false;
+  root.add(groundDepth);
   const mats=['#ad5b40','#506e86','#c1a15c','#485b51','#d4c9af'].map(color=>new T.MeshStandardMaterial({color,roughness:.72}));
   function mesh(parent:T.Group,geo:T.BufferGeometry,mat:T.Material,x=0,y=0,z=0){
     const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
@@ -65,6 +70,7 @@ export function buildLandscape(scene: T.Scene, settings: LandSettings) {
     backdropBlend.value = amount;
     const transparent = amount > 0;
     if (groundMat.transparent !== transparent) {
+      groundDepth.visible = transparent;
       groundMat.transparent = transparent;
       groundMat.needsUpdate = true;
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Mesh, Raycaster, Scene, Vector3 } from 'three';
-import { followFrame, keptAboveLand, landscapeFrame, wanderFrame } from '../src/reborn/camera';
+import { boundLandscapePan, followFrame, keptAboveLand, landscapeFrame, wanderFrame } from '../src/reborn/camera';
 import { gardenReferences } from '../src/reborn/genome';
 import { buildLandscape } from '../src/reborn/landscape';
 import { canTraverse, GardenMotion } from '../src/reborn/motion';
@@ -35,6 +35,22 @@ describe('World Refinement', () => {
       expect(disposed).toBe(geometries.size + materials.size);
       expect(scene.children).toHaveLength(0);
     }
+  });
+
+  it('resolves terrain depth only when blending a photo backdrop', () => {
+    const landscape = buildLandscape(new Scene(), defaultLand);
+    const ground = landscape.root.children[0] as Mesh;
+    const depth = landscape.root.children[1] as Mesh;
+    expect(depth.geometry).toBe(ground.geometry);
+    expect(depth.renderOrder).toBeLessThan(ground.renderOrder);
+    expect(depth.visible).toBe(false);
+    landscape.setBackdrop(.73);
+    expect(depth.visible).toBe(true);
+    expect(landscape.groundMat.transparent).toBe(true);
+    landscape.setBackdrop(0);
+    expect(depth.visible).toBe(false);
+    expect(landscape.groundMat.transparent).toBe(false);
+    landscape.dispose();
   });
 
   it('keeps a clear region and separated low-slope starts over multiple seeds', () => {
@@ -88,6 +104,40 @@ describe('World Refinement', () => {
     const landmark = terrain.landmarks[0];
     position.set(landmark.x, 0, landmark.z);
     expect(keptAboveLand(position, terrain)).toBeGreaterThan(terrain.height(landmark.x, landmark.z) + landmark.scale * 3);
+  });
+
+  it('keeps the orbit direction and radius through repeated boundary pans, turns, and zooms', () => {
+    const terrain = makeTerrain({ ...defaultLand, kind: 'Terraces', elevation: 1 });
+    const target = new Vector3(29, 4, -29);
+    const lens = target.clone().add(new Vector3(8, 5, 1));
+    const up = new Vector3(0, 1, 0);
+    const translation = new Vector3();
+    for (let step = 0; step < 24; step++) {
+      const offset = lens.clone().sub(target).applyAxisAngle(up, .13).multiplyScalar(step % 2 ? .8 : 1.25);
+      translation.set(8, step % 4 < 2 ? 50 : -60, -13);
+      target.add(translation);
+      lens.copy(target).add(offset);
+      boundLandscapePan(lens, target, terrain);
+      expect(target.x).toBe(worldBounds.x);
+      expect(target.z).toBe(-worldBounds.z);
+      expect(lens.clone().sub(target).distanceTo(offset)).toBeLessThan(1e-10);
+      const floor = terrain.height(target.x, target.z);
+      expect(target.y).toBeGreaterThanOrEqual(floor + .42);
+      expect(target.y).toBeLessThanOrEqual(floor + 14);
+      expect(lens.y).toBeCloseTo(keptAboveLand(lens, terrain), 10);
+    }
+  });
+
+  it('raises the whole orbit when the translated camera would intersect a landmark', () => {
+    const terrain = makeTerrain(defaultLand);
+    const arch = terrain.landmarks.find(item => item.kind === 'arch' && !item.distant)!;
+    const lens = new Vector3(arch.x, terrain.height(arch.x, arch.z), arch.z);
+    const target = lens.clone().add(new Vector3(0, -2, 8));
+    const offset = lens.clone().sub(target);
+    const clearance = keptAboveLand(lens, terrain);
+    boundLandscapePan(lens, target, terrain);
+    expect(lens.y).toBeCloseTo(clearance, 10);
+    expect(lens.clone().sub(target).distanceTo(offset)).toBeLessThan(1e-10);
   });
 
   it('covers both viewport shapes and keeps photo adjustments within texture bounds', () => {

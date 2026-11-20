@@ -1,6 +1,7 @@
 import type { Vector3 } from 'three';
 import { clamp, mix } from '../core/random';
 import type { MotionPose } from './motion';
+import { worldBounds } from './terrain';
 import type { Terrain } from './terrain';
 
 export type CameraMode = 'Landscape' | 'Wander' | 'Follow';
@@ -30,7 +31,27 @@ export function followFrame(pose: MotionPose, heading: number, terrain: Terrain,
   position.set(x - dx * 7.1 + dz * 3.7, h + 4.1, z - dz * 7.1 - dx * 3.7);
 }
 
+export function boundLandscapePan(position: Vector3, target: Vector3, terrain: Terrain) {
+  const x = clamp(target.x, -worldBounds.x, worldBounds.x);
+  const z = clamp(target.z, -worldBounds.z, worldBounds.z);
+  position.x += x - target.x;
+  position.z += z - target.z;
+
+  const floor = terrain.height(x, z);
+  const offsetY = position.y - target.y;
+  const lowest = Math.max(floor + .42, landClearance(position, terrain) - offsetY);
+  const y = clamp(target.y, lowest, Math.max(lowest, floor + 14));
+
+  // Translate both endpoints so clipping the pan cannot turn or dolly the camera.
+  position.y += y - target.y;
+  target.set(x, y, z);
+}
+
 export function keptAboveLand(position: Vector3, terrain: Terrain, target?: Vector3) {
+  return Math.max(position.y, landClearance(position, terrain, target));
+}
+
+function landClearance(position: Vector3, terrain: Terrain, target?: Vector3) {
   let y = terrain.height(position.x, position.z) + 1.75;
   for (const item of terrain.landmarks) {
     const reach = item.radius + 2.6;
@@ -48,5 +69,5 @@ export function keptAboveLand(position: Vector3, terrain: Terrain, target?: Vect
       y = Math.max(y, target.y + (ridge - target.y) / fraction);
     }
   }
-  return Math.max(position.y, y);
+  return y;
 }

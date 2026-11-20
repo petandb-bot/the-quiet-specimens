@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { landscapeFrame, wanderFrame, followFrame, keptAboveLand } from './camera';
+import { boundLandscapePan, landscapeFrame, wanderFrame, followFrame, keptAboveLand } from './camera';
 import type { CameraMode } from './camera';
 import { PhotoEnvironment, defaultImage } from './photo';
 import type { ImageSettings } from './photo';
@@ -373,12 +373,8 @@ export class GardenView {
     if (this.cameraMode === 'Landscape') {
       const orbit = this.worldOrbit;
       orbit.update();
-      orbit.target.x = Math.min(worldBounds.x, Math.max(-worldBounds.x, orbit.target.x));
-      orbit.target.z = Math.min(worldBounds.z, Math.max(-worldBounds.z, orbit.target.z));
-      orbit.target.y = Math.max(terrain.height(orbit.target.x, orbit.target.z) + .42, orbit.target.y);
-      this.worldCamera.position.y = keptAboveLand(this.worldCamera.position, terrain);
+      boundLandscapePan(this.worldCamera.position, orbit.target, terrain);
       this.cameraTarget.copy(orbit.target);
-      this.worldCamera.lookAt(this.cameraTarget);
       return;
     }
     if (this.stillCamera && this.cameraMode === 'Wander') return;
