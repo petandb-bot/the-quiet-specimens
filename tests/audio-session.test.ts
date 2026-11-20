@@ -46,7 +46,7 @@ it('plays an initial note under a running context, coalesces starts and releases
   const sound = new GardenSound(status => states.push(status.state));
   sound.setSpecimen(gardenReferences[0]);
   sound.setMix('Solo');
-  sound.behavior('REST', 1);
+  sound.behavior('REST');
   expect(await sound.toggle()).toBe(true);
   expect(note).toHaveBeenCalledOnce();
   expect(vi.mocked(note).mock.calls[0][4]).toBeLessThan(1);
@@ -81,4 +81,25 @@ it('reports a blocked start and allows a visible user retry or visibility recove
   expect(states.at(-1)).toBe('running');
   expect(FakeContext.count).toBe(1);
   expect(vi.getTimerCount()).toBe(1);
+});
+
+it('keeps the World score playing on selection and returns to it after Audition', async () => {
+  const messages: string[] = [];
+  const sound = new GardenSound(status => messages.push(status.message));
+  const [first, second] = gardenReferences;
+  sound.setResidents([{ id: 'first', specimen: first }, { id: 'second', specimen: second }]);
+  sound.setSpecimen(first);
+  expect(await sound.toggle()).toBe(true);
+  const worldVoice = vi.mocked(note).mock.results[0].value;
+  sound.setSpecimen(second);
+  expect(worldVoice.stop).not.toHaveBeenCalled();
+  expect(await sound.audition()).toBe(true);
+  expect(worldVoice.stop).toHaveBeenCalledOnce();
+  expect(messages.at(-1)).toMatch(/selected specimen/);
+  sound.endAudition();
+  expect(messages.at(-1)).toMatch(/World is playing/);
+  expect(FakeContext.count).toBe(1);
+  expect(vi.getTimerCount()).toBe(1);
+  sound.setResidents([]);
+  expect(messages.at(-1)).toMatch(/no residents/);
 });

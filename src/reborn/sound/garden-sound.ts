@@ -97,7 +97,7 @@ export class GardenSound {
 
   setDensity(value: number) { this.density = clamp(Number.isFinite(value) ? value : .62); }
 
-  behavior(action: Action, _serial?: number) { this.resting = action === 'REST'; }
+  behavior(action: Action) { this.resting = action === 'REST'; }
 
   setVolume(value: number) {
     this.volume = clamp(Number.isFinite(value) ? value : 0);

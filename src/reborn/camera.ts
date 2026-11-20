@@ -5,7 +5,7 @@ import type { GroundPoint } from './motion';
 import { worldBounds } from './terrain';
 import type { Terrain } from './terrain';
 
-export type CameraMode = 'Fixed' | 'Landscape' | 'Soft Follow';
+export type CameraMode = 'Fixed' | 'Landscape' | 'Soft Follow' | 'Observatory' | 'Atlas';
 export type ObservationView = { position: [number, number, number]; target: [number, number, number]; zoom: number; fov: number };
 
 export function captureView(camera: PerspectiveCamera, target: Vector3): ObservationView {

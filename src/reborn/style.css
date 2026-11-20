@@ -213,3 +213,24 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#5
 .tools-collapsed .compose-title h2{font-size:1.02rem}
 .composer.tools-collapsed > :not(.compose-title){display:none}
 @media(min-width:731px){.compose-title h2{white-space:nowrap}}
+
+.resident-panel{width:min(340px,calc(100% - 32px))}
+.resident-list{display:grid;gap:5px;max-height:clamp(116px,43svh,346px);overflow:auto;overscroll-behavior:contain}
+.resident-actions{display:flex;flex-wrap:wrap;gap:5px}
+.resident-panel .resident-actions button{flex:1 1 42%;width:auto;min-height:37px}
+.resident-panel .resident-row{display:flex;gap:8px;align-items:center;text-align:left;font-weight:500}
+.resident-row img{flex:none;background:#dedacd;border-radius:2px}
+.resident-row strong,.resident-row small{display:block}
+.resident-row small{font-size:.74rem;color:#534a3b}
+.resident-panel .resident-row[aria-pressed=true]{border-color:#49644e;background:#dfe6d6}
+#audio-panel output{float:right}
+@media(max-width:625px){
+  .resident-list{max-height:33svh}
+  .resident-panel .resident-actions button{min-height:44px}
+}
+.moment-list{padding-left:1.1rem;margin:.45rem 0 0;max-height:9rem;overflow:auto;font-size:.78rem}
+.moment-list li{padding-block:3px}
+@media(max-width:625px){
+  .land-panel{top:auto;bottom:max(9px,env(safe-area-inset-bottom));max-height:55svh}
+  .resident-list{max-height:25svh}
+}

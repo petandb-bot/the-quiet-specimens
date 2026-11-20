@@ -1,6 +1,7 @@
 import { clamp, mix, random } from '../core/random';
 import type { GardenGenome, GardenPlan } from './genome';
 import type { PointOfInterest } from './composition';
+import type { SmallMoment } from './observation/moments';
 import { LivingTerritory } from './territory';
 import type { Destination, Intention } from './territory';
 
@@ -40,13 +41,16 @@ export function canTraverse(terrain: MotionField, plan: GardenPlan, radius: numb
 
 export type SocialAction = 'Observe Other' | 'Avoid' | 'Follow' | 'Imitation';
 type GestureOrigin = 'natural' | 'manual' | 'imitation';
-type Response = { action: SocialAction; peer: GardenMotion; until: number; due: number; gesture?: Gesture };
+type Response = { action: SocialAction; peer: GardenMotion; until: number; started: number; due: number; gesture?: Gesture };
 const pace = { HINGE: .88, VESSEL: .64, RELAY: 1.04 } satisfies Record<GardenPlan, number>;
 
 export interface MotionPose {
   x: number; z: number; yaw: number; speed: number; time: number; stride: number;
   phase: Phase; gesture: Gesture; action: number; preparation: number; recovery: number;
   intent: Intention; social: SocialAction | null; attention: number; compression: number;
+  moment?: SmallMoment;
+  relax: number;
+  greet: number;
 }
 const smooth = (x: number) => { const t = clamp(x); return t * t * (3 - 2 * t); };
 
@@ -59,6 +63,8 @@ export function limitFrame(elapsed: number, carry: number) {
 export class GardenMotion {
   readonly pose: MotionPose;
   private rng;
+  private moments;
+  private recent?: { kind: SmallMoment; peer?: string };
   private home: GroundPoint;
   private target: GroundPoint;
   private limit: { x: number; z: number };
@@ -91,8 +97,9 @@ export class GardenMotion {
   respond(action: SocialAction, peer: GardenMotion, duration: number, delay = 0, gestureIndex = 0) {
     if (!this.canRespond || peer === this) return false;
     const gesture = gestures[this.genome.plan][gestureIndex % gestures[this.genome.plan].length];
-    this.response = { action, peer, until: this.pose.time + duration, due: this.pose.time + delay, gesture };
+    this.response = { action, peer, started: this.pose.time, until: this.pose.time + duration, due: this.pose.time + delay, gesture };
     this.pose.social = action;
+    if (action === 'Observe Other' && this.moments.next() < .72) this.enterMoment('Greeting', peer.seed);
     this.reserveSocial(duration + 8 + this.genome.caution * 7);
     return true;
   }
@@ -104,6 +111,18 @@ export class GardenMotion {
   private endResponse() {
     this.response = undefined;
     this.pose.social = null;
+    if (this.pose.moment === 'Greeting') this.pose.moment = undefined;
+  }
+
+  private enterMoment(kind: SmallMoment, peer?: string) {
+    this.pose.moment = kind;
+    this.recent = { kind, peer };
+  }
+
+  takeMoment() {
+    const event = this.recent;
+    this.recent = undefined;
+    return event;
   }
 
   constructor(
@@ -117,11 +136,12 @@ export class GardenMotion {
     this.home = [clamp(anchor[0], -this.limit.x, this.limit.x), clamp(anchor[1], -this.limit.z, this.limit.z)];
     this.target = this.home;
     this.rng = random(genome.seed + '/motion');
+    this.moments = random(genome.seed + '/moments');
     this.duration = this.rng.range(.75, 2.1);
     this.detour = this.rng.next() < .5 ? -1 : 1;
     this.pose = {
       x: this.home[0], z: this.home[1], yaw: this.rng.range(-.35, .6), speed: 0, time: 0, stride: 0,
-      intent: 'Explore', social: null, attention: 0, compression: 0, phase: 'Explore', gesture: gestures[genome.plan][0], action: 0, preparation: 0, recovery: 0,
+      intent: 'Explore', social: null, attention: 0, compression: 0, greet: 0, relax: 0, phase: 'Explore', gesture: gestures[genome.plan][0], action: 0, preparation: 0, recovery: 0,
     };
     if (terrain?.points) this.territory = new LivingTerritory(genome, this.home, terrain, this.limit, point => this.walkable(point));
     this.journey();
@@ -199,8 +219,14 @@ export class GardenMotion {
     if (arrived) territory.arrived(destination, this.pose.time);
     if (destination.intent === 'Return Home' || destination.intent === 'Seek Rest' || destination.intent === 'Gather') {
       this.phase('Rest', arrived ? territory.pauseTime(destination.intent) : .85);
+      if (arrived && destination.intent === 'Seek Rest') this.enterMoment('Sleeping');
+      if (arrived && destination.intent === 'Return Home') this.enterMoment('Returned home');
     } else {
       this.startGesture(this.rng.pick(gestures[this.genome.plan] as readonly Gesture[]), 'natural');
+      if (arrived && this.moments.next() < .20 + this.genome.caution * .16) {
+        this.duration += this.moments.range(1.25, 2.5);
+        this.enterMoment('Waiting');
+      }
     }
   }
 
@@ -212,6 +238,7 @@ export class GardenMotion {
 
   private phase(next: Phase, duration: number) {
     this.pose.phase = next;
+    this.pose.moment = undefined;
     this.elapsed = 0;
     this.duration = duration;
   }
@@ -248,10 +275,15 @@ export class GardenMotion {
       }
     }
     const t = clamp(this.elapsed / this.duration);
-    pose.preparation = (pose.phase === 'Hesitate' ? smooth(t) : pose.phase === 'Act' ? 1 - smooth(t * 3) : 0) * this.gestureStrength;
+    const readiness = pose.moment === 'Waiting' ? smooth((t - .70) / .30) : smooth(t);
+    pose.preparation = (pose.phase === 'Hesitate' ? readiness : pose.phase === 'Act' ? 1 - smooth(t * 3) : 0) * this.gestureStrength;
     pose.action = (pose.phase === 'Act' ? Math.sin(Math.PI * t) : 0) * this.gestureStrength;
     pose.recovery = (pose.phase === 'Recover' ? (1 - t) ** 2 : 0) * this.gestureStrength;
     pose.attention = mix(pose.attention, this.response ? 1 : 0, 1 - Math.exp(-dt * 2.7));
+    pose.relax = mix(pose.relax, pose.moment === 'Sleeping' ? 1 : 0, 1 - Math.exp(-dt * 1.6));
+    const age = this.response && pose.moment === 'Greeting' ? (pose.time - this.response.started) / (this.response.until - this.response.started) : 0;
+    const nod = Math.sin(Math.PI * clamp(age)) ** 2;
+    pose.greet = mix(pose.greet, nod, 1 - Math.exp(-dt * 6.8));
 
     let dx = this.target[0] - pose.x, dz = this.target[1] - pose.z, intensity = 1;
     if (this.response && pose.phase === 'Explore') {

@@ -18,7 +18,7 @@ it('starts the world promptly, rotates the full roster and bounds overlapping vo
     const score = ecology.next(now, voices.length, voices.filter(voice => voice.sustained).length, .85);
     if (!score) continue;
     expect(score.at - (notes.at(-1) ?? -Infinity)).toBeGreaterThanOrEqual(worldGap - 1e-7);
-    expect(notes.filter(at => score.at - at < 2)).toHaveLength(Math.min(3, notes.filter(at => score.at - at < 2).length));
+    expect(notes.filter(at => score.at - at < 2).length).toBeLessThanOrEqual(3);
     expect(score.strength).toBeLessThan(.8);
     notes.push(score.at);
     voices.push({ end: score.at + 2.7, sustained: score.sustained });
@@ -58,11 +58,11 @@ it('caps overlapping local effects and never resends a simulation interaction as
   const score = new SoundEcology();
   score.setResidents(roster.slice(0, 2), 0);
   score.begin(0);
-  const events = [{ kind: 'Encounter', actor: '0', peer: '1', at: 1 }] as const;
+  const events = Array.from({ length: 12 }, (_, at) => ({ kind: 'Encounter' as const, actor: '0', peer: '1', at }));
   let responses = 0;
   for (let time = 0; time < 100; time += .05) {
     score.observe(events, time, () => center);
     if (score.next(time, 0, 0, 1)?.response) responses++;
   }
-  expect(responses).toBeLessThanOrEqual(1);
+  expect(responses).toBe(1);
 });

@@ -48,3 +48,17 @@ it('restores a user framing across editor and inspection camera changes', () => 
   showView(camera, target, view);
   expect(captureView(camera, target)).toEqual(view);
 });
+
+it('Observatory holds pre-composed views and cuts only at the requested interval or step', async () => {
+  const { Observatory, observationStations, stationDuration } = await import('../src/reborn/observation/tour');
+  const tour = new Observatory();
+  const stations = observationStations(flat, false, [[3, -3], [-5, 2]]);
+  expect(stations).toHaveLength(4);
+  tour.load(stations);
+  for (let t = 0; t < 200; t++) expect(tour.advance(1)).toBeUndefined();
+  expect(tour.station?.name).toBe('Open field');
+  expect(tour.step(-1)?.name).toBe('Far rise');
+  tour.auto = true;
+  for (let t = 0; t < stationDuration - 1; t++) expect(tour.advance(1)).toBeUndefined();
+  expect(tour.advance(1)).toEqual(stations[0]);
+});
