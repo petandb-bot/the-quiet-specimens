@@ -97,3 +97,20 @@ The [Build and test workflow](../.github/workflows/ci.yml) runs `npm ci`, `npm t
 ### Remaining verification
 
 Physical iPhone Safari, hardware-GPU performance, extended live-session GPU memory, and recovery from forced WebGL context loss are still open. The earlier 620-second run covers simulation behavior. This browser pass covers rendering and interaction in Chromium with a software renderer.
+
+## B4.1 Personal Places
+
+The branch starts from the merge of PR #1 at `70d76b8`. A clean install and the baseline 40 checks passed on the merged code. B4.1 passes 44 tests and the production build. The additional checks cover the versioned document, invalid data, bounded history, durable landmark edits through regeneration, object geometry and ground contact, linked and neutral places, localized memory cleanup, and safe placement. The existing 620-second behavior regression continues to pass.
+
+Playwright exercised the production app in Chromium with WebGL 2 through ANGLE/SwiftShader. Desktop used a 1120 × 720 viewport. The test previewed and randomized objects, clicked to place them, dragged a Flora, edited its finish and transform, duplicated and deleted objects, and checked that Undo and Redo restored the coordinates. It created a Shelter linked to a Kinetic form and an independent Quiet region. It also exercised resident placement, relocation, home and preferred area, Follow, both editing cameras, View, and the photo controls. A terrain rebuild retained the authored forms, a moved generated arch, and all six residents. A 390 px touch profile placed an object while the tools were collapsed. A separate pass on the final bundle detected a nonzero Audition signal in Chromium, verified restoration of the prior sound state, and rendered WebGL after navigating to Legacy.
+
+The visual pass moved the two forms into the foreground and midground while retaining open land. In Plan, a thin boundary and location markers help read the field, with clear visibility from above. Perspective and View use the usual atmosphere. The screenshots show real browser frames.
+
+- [Composer](screenshots/personal-places/composer.jpg)
+- [Object placement](screenshots/personal-places/objects.jpg)
+- [Plan with two places](screenshots/personal-places/plan.jpg)
+- [Flora](screenshots/personal-places/flora.jpg)
+- [Kinetic](screenshots/personal-places/kinetic.jpg)
+- [World with controls hidden](screenshots/personal-places/observed-world.jpg)
+
+This review build covers the session editor. Sculpting, surface regions, style presets, a persistent archive, portable photos, and camera bookmarks belong to B4.2 and B4.3. Physical iPhone Safari, hardware GPU performance, and long-duration GPU resource tests remain open.

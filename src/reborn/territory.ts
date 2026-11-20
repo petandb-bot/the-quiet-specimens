@@ -14,8 +14,13 @@ const distance = (a: GroundPoint, b: GroundPoint) => Math.hypot(a[0] - b[0], a[1
 export class LivingTerritory {
   readonly traits: { curiosity: number; caution: number; activity: number; social: number };
   readonly range: number;
-  readonly preferredArea: GroundPoint;
-  readonly restingPlace: GroundPoint;
+  private ordinaryRest: GroundPoint;
+  private restId?: string;
+  private preferredId?: string;
+  private pinnedPreferred?: GroundPoint;
+  private ordinaryPreferred: GroundPoint;
+  get preferredArea() { return this.pinnedPreferred ?? this.ordinaryPreferred; }
+  get restingPlace() { return this.ordinaryRest; }
   private visits: Visit[] = [];
   private rng;
   private homeAt = 0;
@@ -25,7 +30,7 @@ export class LivingTerritory {
 
   constructor(
     private genome: GardenGenome,
-    readonly home: GroundPoint,
+    public home: GroundPoint,
     private field: MotionField,
     private limits: MotionField['bounds'],
     private walkable: (point: GroundPoint) => boolean,
@@ -38,9 +43,36 @@ export class LivingTerritory {
     const nearby = (field.points ?? []).filter(point => distance(point.position, home) <= this.range * .9 && walkable(point.position));
     const favorite = this.favorite(nearby, home);
     const rest = this.favorite(nearby.filter(point => distance(point.position, home) < this.range * .61), home, true);
-    this.preferredArea = favorite?.position ?? this.sample(home, this.range * .45);
-    this.restingPlace = rest?.position ?? home;
+    this.ordinaryPreferred = favorite?.position ?? this.sample(home, this.range * .45);
+    this.preferredId = favorite?.id;
+    this.ordinaryRest = rest?.position ?? home;
+    this.restId = rest?.id;
     this.record(home, 0);
+  }
+
+  updateField(field: MotionField) {
+    const next = new Map((field.points ?? []).map(point => [point.id, point]));
+    const changed = new Set((this.field.points ?? []).filter(old => {
+      const current = next.get(old.id);
+      return !current || distance(old.position, current.position) > .001
+        || old.role !== current.role || old.weight !== current.weight;
+    }).map(point => point.id));
+    this.field = field;
+    if (!changed.size) return changed;
+    this.visits = this.visits.filter(visit => !visit.interest || !changed.has(visit.interest));
+    if (this.interest && changed.has(this.interest)) { this.interest = undefined; this.interestedAt = -Infinity; }
+    if (this.restId && changed.has(this.restId)) { this.ordinaryRest = this.home; this.restId = undefined; }
+    if (this.preferredId && changed.has(this.preferredId)) { this.ordinaryPreferred = this.home; this.preferredId = undefined; }
+    return changed;
+  }
+
+  setHabitat(home?: GroundPoint, preferred?: GroundPoint) {
+    if (home) {
+      this.home = home;
+      if (!this.restId) this.ordinaryRest = home;
+      if (!this.preferredId) this.ordinaryPreferred = home;
+    }
+    this.pinnedPreferred = preferred;
   }
 
   recentVisits(now: number): readonly Visit[] {
@@ -71,8 +103,14 @@ export class LivingTerritory {
     let choice: PointOfInterest | undefined;
     let best = -Infinity;
     for (const point of points) {
+      const { curiosity, caution, social } = this.traits;
+      const influence = point.role === 'Shelter' ? caution * (rest ? 1.7 : .45)
+        : point.role === 'Curiosity' ? curiosity * 1.7
+        : point.role === 'Gathering' ? social * 1.42
+        : point.role === 'Quiet' ? (1 - this.traits.activity) * (rest ? 1.65 : .50) : 0;
       const score = this.comfort(point.position, point.shelter) - distance(point.position, from) * (rest ? .065 : .025)
-        + this.rng.next() * .38 + (rest && this.genome.plan !== 'VESSEL' ? point.shelter * .55 : 0);
+        + this.rng.next() * .38 + (rest && this.genome.plan !== 'VESSEL' ? point.shelter * .55 : 0)
+        + influence * (point.weight ?? 0);
       if (score > best) { best = score; choice = point; }
     }
     return choice;
@@ -86,7 +124,11 @@ export class LivingTerritory {
       return { point: this.home, intent: 'Return Home' };
     }
     if (now - this.restedAt > mix(44, 90, t.activity)) {
-      return { point: this.restingPlace, intent: 'Seek Rest' };
+      const shelter = (this.field.points ?? []).filter(point => (point.role === 'Shelter' || point.role === 'Quiet')
+        && distance(point.position, this.home) < this.range && this.walkable(point.position));
+      const chosen = this.favorite(shelter, from, true);
+      if (chosen) return { point: chosen.position, intent: 'Seek Rest', interest: chosen.id };
+      return { point: this.restingPlace, intent: 'Seek Rest', interest: this.restId };
     }
     if (this.rng.next() < .20 + t.curiosity * .29 && now - this.interestedAt > 16) {
       const available = (this.field.points ?? []).filter(point => distance(point.position, this.home) < this.range
@@ -96,7 +138,8 @@ export class LivingTerritory {
       if (poi) {
         this.interest = poi.id;
         this.interestedAt = now;
-        const gather = t.social > .47 && poi.shelter > .65 && this.rng.next() < t.social;
+        const gather = t.social > .47 && (poi.role === 'Gathering' || (!poi.role && poi.shelter > .65))
+          && this.rng.next() < t.social * (poi.weight ?? 1);
         // Several residents can approach the same landmark with room for each body.
         const point = gather ? this.sample(poi.position, 2.25, true) : poi.position;
         return { point, intent: gather ? 'Gather' : 'Inspect Object', interest: this.interest };

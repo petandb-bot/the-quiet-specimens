@@ -1,6 +1,6 @@
 # The Quiet Specimens — Reborn
 
-**Elsewhere · B2.1 World Refinement / B3 Living Territories (preview)**
+**Elsewhere · B4.1 Personal Places (preview)**
 
 生きているはずのない物体が、自分の意思で動いているように見える地平線まで続く風景です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
 
@@ -18,6 +18,14 @@ npm run build
 ```
 
 開発時は Vite が表示する URL を開きます。静的ホスティングには `dist/` を配信します。ビルド済みの確認には `npm run preview` を使います。
+
+## Personal Places
+
+**Compose** で彫刻を選び、地面に置いてドラッグで動かします。**Plan** は真上から配置を見渡す視点です。**Perspective** の **Navigate** では鑑賞カメラを動かせます。**Places** では、休息場所や興味を引く場所を地面に作ったり、物体に結びつけたりできます。**Life** から住民の出発地点や Home を指定できます。
+
+編集を閉じると住民の活動が再開します。編集は現在のブラウザセッション内で保持されます。
+
+[Place Composer](docs/WORLD_COMPOSER.md) · [場所の役割](docs/PLACE_SYSTEM.md) · [世界データ](docs/WORLD_DOCUMENT.md)
 
 ## 操作
 
@@ -50,3 +58,9 @@ Elsewhere は WebGL 2 を使います。庭園の配置、写真、個体の場�
 - **Image** から写真を選べます。**Backdrop** は遠景に写真を使い、**Atmosphere** は抽出色を地形・霧・照明に反映します。写真はブラウザ内だけで処理します。
 
 [Elsewhere の地形・カメラ・写真](docs/ELSEWHERE.md) · [Living Territories の行動設計](docs/LIVING_TERRITORIES.md)
+
+## GitHub Pages
+
+公開時はリポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。`Publish Vite application` は main の更新時にテスト・ビルド・配信ファイル検査を行い、生成された `dist/` のみを公開します。手動起動は Actions の同名ワークフローから可能です。ソースを直接公開する Jekyll / Deploy from a branch では TypeScript エントリーが動作しません。
+
+公開先: https://petandb-bot.github.io/the-quiet-specimens/ （初回デプロイ成功後）
