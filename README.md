@@ -58,3 +58,9 @@ Elsewhere は WebGL 2 を使います。庭園の配置、写真、個体の場�
 - **Image** から写真を選べます。**Backdrop** は遠景に写真を使い、**Atmosphere** は抽出色を地形・霧・照明に反映します。写真はブラウザ内だけで処理します。
 
 [Elsewhere の地形・カメラ・写真](docs/ELSEWHERE.md) · [Living Territories の行動設計](docs/LIVING_TERRITORIES.md)
+
+## GitHub Pages
+
+公開時はリポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。`Publish Vite application` は main の更新時にテスト・ビルド・配信ファイル検査を行い、生成された `dist/` のみを公開します。手動起動は Actions の同名ワークフローから可能です。ソースを直接公開する Jekyll / Deploy from a branch では TypeScript エントリーが動作しません。
+
+公開先: https://petandb-bot.github.io/the-quiet-specimens/ （初回デプロイ成功後）
