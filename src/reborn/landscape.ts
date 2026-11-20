@@ -19,8 +19,15 @@ export function buildLandscape(scene: T.Scene, settings: LandSettings) {
   geometry.computeVertexNormals();
   geometry.setAttribute('color',new T.BufferAttribute(colors,3));
   const groundMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.94});
+  const backdropBlend={value:0};
+  groundMat.onBeforeCompile = shader => {
+    shader.uniforms.backdropBlend=backdropBlend;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float backdropBlend;');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <fog_fragment>','#include <fog_fragment>\n#ifdef USE_FOG\n gl_FragColor.a *= 1.0 - backdropBlend * smoothstep(55.0, 105.0, vFogDepth);\n#endif');
+  };
+  groundMat.customProgramCacheKey=()=> 'elsewhere-ground-photo-fade';
   const ground=new T.Mesh(geometry,groundMat);
-  ground.receiveShadow=true; root.add(ground);
+  ground.receiveShadow=true;ground.renderOrder=-10;root.add(ground);
   const mats=['#ad5b40','#506e86','#c1a15c','#485b51','#d4c9af'].map(color=>new T.MeshStandardMaterial({color,roughness:.72}));
   function mesh(parent:T.Group,geo:T.BufferGeometry,mat:T.Material,x=0,y=0,z=0){
     const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
@@ -47,7 +54,7 @@ export function buildLandscape(scene: T.Scene, settings: LandSettings) {
     }
   }
   scene.add(root);
-  return { root, terrain, groundMat, animate:(t:number)=>kinetics.forEach(f=>f(t)), dispose:()=>{
+  return { root, terrain, groundMat, setBackdrop:(enabled:boolean)=>{backdropBlend.value=enabled?1:0;groundMat.transparent=enabled;groundMat.needsUpdate=true;}, animate:(t:number)=>kinetics.forEach(f=>f(t)), dispose:()=>{
     root.removeFromParent();
     const geometries=new Set<T.BufferGeometry>(), materials=new Set<T.Material>();
     root.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});

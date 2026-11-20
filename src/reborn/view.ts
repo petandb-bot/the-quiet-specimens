@@ -26,7 +26,13 @@ export class GardenView {
   private photoAspect = 1;
   private photoRequest = 0;
   private tint = new T.Color('#c6cfc4');
-  private sky = new T.Color('#ced8d3');
+  private sky = new T.Color('#c6cfc4');
+  private groundNormal = new T.Vector3();
+  private groundAlign = new T.Quaternion();
+  private yawAlign = new T.Quaternion();
+  private up = new T.Vector3(0,1,0);
+  private cameraPos = new T.Vector3();
+  private nextTarget = new T.Vector3();
   private key!: T.DirectionalLight;
   private worldClock = 0;
   private detailCamera = new T.PerspectiveCamera(33, 1, .08, 50);
@@ -172,7 +178,20 @@ export class GardenView {
     const pose = resident.movement.pose;
     const root = resident.rig.root;
     root.position.set(solo ? pose.x * .30 : pose.x, solo ? .020 : this.garden.terrain.height(pose.x,pose.z) + .035, solo ? pose.z * .30 : pose.z);
-    root.rotation.y = pose.yaw;
+    if(solo || resident.specimen.genome.plan === 'VESSEL') root.rotation.set(0,pose.yaw,0);
+    else {
+      const height=this.garden.terrain.height;
+      // Follow the broad surface normal, not sharp triangle edges.
+      const dx=height(pose.x+.65,pose.z)-height(pose.x-.65,pose.z);
+      const dz=height(pose.x,pose.z+.65)-height(pose.x,pose.z-.65);
+      this.groundNormal.set(-dx/1.3,1,-dz/1.3);
+      const horizontal=Math.hypot(this.groundNormal.x,this.groundNormal.z);
+      if(horizontal>.48){this.groundNormal.x*=.48/horizontal;this.groundNormal.z*=.48/horizontal;}
+      this.groundNormal.normalize();
+      this.groundAlign.setFromUnitVectors(this.up,this.groundNormal);
+      this.yawAlign.setFromAxisAngle(this.up,pose.yaw);
+      root.quaternion.copy(this.groundAlign).multiply(this.yawAlign);
+    }
     resident.rig.animate(pose);
   }
 
@@ -238,6 +257,7 @@ export class GardenView {
     old.dispose();
     next.root.visible = this.mode === 'Observe';
     next.groundMat.color.copy(this.photo ? this.tint.clone().lerp(new T.Color('#ffffff'),.67) : new T.Color('#ffffff'));
+    next.setBackdrop(Boolean(this.photo));
     for(const item of this.beings.values()){
       const t=next.terrain, radius=bodyPlans[item.specimen.genome.plan].radius(item.specimen.genome);
       item.movement=new GardenMotion(item.specimen.genome,t.anchors[item.slot],t.landmarks,radius,{bounds:worldBounds,height:t.height,slope:t.slope});
@@ -265,6 +285,7 @@ export class GardenView {
       const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
       this.photo?.dispose();this.photo=texture;this.photoAspect=canvas.width/canvas.height;
       this.garden.groundMat.color.copy(this.tint.clone().lerp(new T.Color('#ffffff'),.67));
+      this.garden.setBackdrop(true);
       if(this.mode==='Observe'){this.scene.background=texture;this.scene.fog=new T.Fog(this.tint,39,115);}
       this.fitPhoto();
     }finally{URL.revokeObjectURL(url);}
@@ -272,7 +293,7 @@ export class GardenView {
   clearPhoto(){
     ++this.photoRequest;
     this.photo?.dispose();this.photo=undefined;this.tint.set('#c6cfc4');
-    this.garden.groundMat.color.set('#ffffff');
+    this.garden.groundMat.color.set('#ffffff');this.garden.setBackdrop(false);
     if(this.mode==='Observe'){this.scene.background=this.sky;this.scene.fog=new T.Fog(this.tint,39,115);}
   }
   private fitPhoto(){
@@ -283,7 +304,7 @@ export class GardenView {
     this.photo.updateMatrix();
   }
   private moveCamera(dt:number){
-    const pos=new T.Vector3(), target=new T.Vector3();
+    const pos=this.cameraPos, target=this.nextTarget;
     const resident=this.beings.get(this.focusSeed);
     if(this.cameraMode==='Follow' && resident){
       const p=resident.movement.pose, h=this.garden.terrain.height(p.x,p.z);
@@ -338,7 +359,7 @@ export class GardenView {
       if (observe) { this.worldClock += steps * stepSeconds; this.garden.animate(this.worldClock); }
     }
     if (!observe) this.orbit.update();
-    else if(!this.paused) this.moveCamera(delta);
+    else this.moveCamera(delta);
     this.onFrame();
     this.renderer.render(this.scene, observe ? this.worldCamera : this.detailCamera);
   };

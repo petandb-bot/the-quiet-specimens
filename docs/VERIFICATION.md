@@ -43,3 +43,7 @@ The Reborn suite verifies seeds and reference presets, finite geometry after ani
 - The managed browser relay timed out, and Chrome reached the private sign-in gate on the hosted URL. Live input, extended frame timing, iPhone operation, individual close-up captures, and motion recordings were not verified in this environment.
 - The host captured the Three.js garden at 1200 × 750. Hinge was airborne, Vessel showed its suspended interior, and Relay showed its linked body. The camera and shadow fill were revised after the first hosted image. [Final WebGL capture](../public/downloads/reborn-artificial-garden.jpg)
 - All nine reference sonotypes rendered offline at 44.1 and 48 kHz. The 18 checks produced finite output, with a maximum peak of 0.1186 in the offline Web Audio implementation.
+
+## Elsewhere B1/B2 preview
+
+See [Elsewhere](ELSEWHERE.md). Pure terrain and motion logic smoke-tested using type-stripped JavaScript from the branch. Full npm test/build, GPU rendering, shader compilation, UI interactions and physical mobile tests were not run. Do not treat Phase A verification as verification of Elsewhere.
