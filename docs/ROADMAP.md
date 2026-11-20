@@ -1,10 +1,17 @@
-# Reborn roadmap
+# Reborn / Elsewhere roadmap
 
-1. **A · Art & Motion Study** — Hinge, Vessel, and Relay, nine reference specimens, Artificial Garden, basic seed replay, observation, inspection, specimen placement during a session, and single-specimen audio.
-2. **B · Genesis & Collection** — Adapt Extract, Discover, and Mutate to the new genomes. Add a separate versioned archive and JSON exchange for Reborn.
-3. **C · Living World** — Develop object-specific responses, interactions between specimens, and additional spaces. Study Assembly once the original body plans have a consistent visual language.
-4. **D · Sound Ecology** — Experiment with new sonotypes, bounded responses between individuals, long-running audio, and WAV recording.
-5. **E · World Composer** — Develop object placement, movement and sizing, undo, creature placement, and saved environments.
-6. **F · Artificial Life** — Explore inheritance, generations, growth, and additional mutations and bodies.
+| Phase | Scope | Status |
+| --- | --- | --- |
+| A · Art & Motion Study | HINGE, VESSEL, RELAY, nine reference specimens, seed replay, Inspect / Action, and selected-specimen audio | Reborn release |
+| B1 · Expanded World | 60×60 activity area in a 240×240 rendered landscape with sculptural landmarks | In Elsewhere |
+| B2 · Personal Landscapes | Session-local photo backdrop and land settings | In Elsewhere |
+| B2.1 · World Refinement | Landscape composition, terrain contact, manual and automatic cameras, photo settings | In the Elsewhere review branch |
+| B3 · Living Territories | Home ranges, bounded place memory, distinct rest patterns, occasional encounters and imitation | In the Elsewhere review branch |
+| B4 · World Composer | Object placement, movement and sizing, undo, and locally saved environments | Planned |
+| B5 · Environmental Time | Slowly varying light, atmosphere and environmental influence on resident activity | Planned |
+| B6 · Sound Ecology | Bounded multi-specimen responses, environmental resonance, and long-running audio | Planned |
+| B7 · Discovery & Collection | Extract, Discover, Mutate, and a versioned archive with JSON exchange | Planned |
 
-The previous aquarium and Specimen Lab have their own entry at `/legacy/`.
+Assembly, Fold, Orbit, and Root are future body-plan studies. The earlier aquarium, Specimen Lab and archive remain accessible at `/legacy/`.
+
+[World Refinement](ELSEWHERE.md) · [Living Territories](LIVING_TERRITORIES.md) · [Verification](VERIFICATION.md)

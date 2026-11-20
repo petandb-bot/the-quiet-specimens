@@ -6,7 +6,8 @@ import { gestures } from './motion';
 import type { MotionPose } from './motion';
 
 type Surfaces = ReturnType<typeof specimenMaterials>;
-type Rig = (pose: MotionPose) => void;
+export interface RigGround { height: (x: number, z: number) => number; floor: number }
+type Rig = (pose: MotionPose, ground?: RigGround) => void;
 type Builder = (root: T.Group, genome: GardenGenome, materials: Surfaces) => Rig;
 
 const v = (x: number, y: number, z: number) => new T.Vector3(x, y, z);
@@ -85,7 +86,8 @@ const hinge: Builder = (root, g, m) => {
   pin(lever, .054, .26, m.accent, 0, .015);
   tether(frame, v(-width * .41, 1.1, -.20), v(-width * .70, 1.43 + g.asymmetry * .29, -.18), .038, m.accent);
 
-  return p => {
+  const toe = new T.Vector3();
+  return (p, ground) => {
     const gait = Math.min(1, p.speed * 1.45);
     const fold = p.preparation * .61 + (p.gesture === 'Fold' ? p.action : 0) * .83;
     const stumble = p.gesture === 'Stumble' ? p.action * .48 - p.recovery * .27 : 0;
@@ -97,6 +99,14 @@ const hinge: Builder = (root, g, m) => {
       joint.rotation.z = step * gait * .45 - fold * .26 + p.recovery * .11 * (index - .5);
       feet[index].rotation.z = -.48 * joint.rotation.z;
     });
+    if (ground) {
+      let correction = 0;
+      for (const foot of feet) {
+        foot.localToWorld(toe.set(0, -.11, 0));
+        correction = Math.max(correction, ground.height(toe.x, toe.z) - toe.y);
+      }
+      frame.position.y += Math.min(.48, correction);
+    }
   };
 };
 
@@ -160,16 +170,16 @@ const vessel: Builder = (root, g, m) => {
     const swell = Math.sin(p.time * (1.5 + g.gait)) * .048;
     const squeeze = p.gesture === 'Contract' ? p.action * .21 : .03 * p.action;
     const pulse = p.gesture === 'Pulse' ? p.action * .093 * Math.sin(p.time * 15) : 0;
-    pod.position.y = 1.17 + swell - squeeze * .68 - p.preparation * .10;
+    pod.position.y = 1.17 + swell + .13 * Math.sin(p.time * .57) * Math.min(1, p.speed * 1.4) - squeeze * .68 - p.preparation * .10;
     const inclination = .13 * Math.sin(p.time * 1.14) + (p.gesture === 'Tilt' ? p.action * .47 : 0) - p.recovery * .12;
     pod.rotation.z = inclination;
     envelope.scale.set(1 + swell + pulse - squeeze, 1 - swell + pulse + squeeze * .32, 1 + swell + pulse - squeeze);
     drift += (inclination - drift) * (1 - Math.exp(-(p.time - previous) * 3.9));
     previous = p.time;
-    inside.rotation.z = -drift * 1.62;
+    inside.rotation.z = -drift * 1.62 + p.attention * .21 * Math.sin(p.time * 4.1);
     inside.rotation.x = p.time * .63 * g.gait;
     inside.rotation.y = p.time * .44 + p.action * .56;
-    inside.position.y = -.07 + Math.sin(p.time * 1.83 - .70) * .11;
+    inside.position.y = -.07 + Math.sin(p.time * 1.83 - .70) * .11 + p.attention * .12;
   };
 };
 
@@ -195,16 +205,19 @@ const relay: Builder = (root, g, m) => {
     if (i) links.push(model(root, new T.CylinderGeometry(.046, .046, 1, 7), m.dark));
   }
   const axis = v(0, 1, 0), boundary = v(0, 0, 0);
-  return p => {
+  return (p, ground) => {
+    const cos = Math.cos(p.yaw), sin = Math.sin(p.yaw);
     const coil = (p.gesture === 'Coil' ? p.action : 0) * .68 + p.preparation * .38;
     const stretch = p.gesture === 'Stretch' ? p.action * .46 : 0;
     const ripple = p.gesture === 'Ripple' ? p.action * .52 : 0;
-    let x = spacing * (nodes.length - 1) * .51, z = 0;
+    const step = spacing * (1 - p.compression * .24);
+    let x = step * (nodes.length - 1) * .51, z = 0;
     nodes.forEach((node, i) => {
       const delay = p.stride - i * .88;
       const bend = (g.curvature - .48) * .51 + coil * (i / nodes.length * 1.75) + .24 * Math.sin(delay) * Math.min(1, p.speed * 2);
-      if (i) { x -= spacing * (1 + stretch) * Math.cos(bend); z += spacing * Math.sin(bend); }
-      node.position.set(x, .135 + .055 * Math.sin(delay) * Math.min(1, p.speed * 1.6) + .15 * ripple * Math.sin(p.time * 15 - i * 1.25), z);
+      if (i) { x -= step * (1 + stretch) * Math.cos(bend); z += spacing * Math.sin(bend); }
+      const land = ground ? ground.height(p.x + x * cos + z * sin, p.z - x * sin + z * cos) - ground.floor : 0;
+      node.position.set(x, land + .135 + .055 * Math.sin(delay) * Math.min(1, p.speed * 1.6) + .15 * ripple * Math.sin(p.time * 15 - i * 1.25), z);
       node.rotation.y = bend;
       node.rotation.x = .14 * Math.sin(delay * 1.13) * Math.min(1, p.speed + ripple) + p.recovery * .05;
       if (i) {
