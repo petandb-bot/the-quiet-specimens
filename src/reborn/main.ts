@@ -15,13 +15,14 @@ import type { ImageSettings } from './photo';
 import { freshSeed } from '../core/random';
 import type { GardenMode } from './view';
 import './style.css';
+import './composer/style.css';
 
 function element<T extends HTMLElement = HTMLElement>(id: string) {
   return document.getElementById(id) as T;
 }
 
 element('app').innerHTML = `
-  <a class="skip" href="#more-controls">Skip to controls</a>
+  <a class="skip" href="#observe-mode">Skip to controls</a>
   <main class="experience" id="experience">
     <div class="canvas" id="canvas"></div>
     <p class="graphics" id="graphics" role="status" hidden></p>
@@ -30,19 +31,20 @@ element('app').innerHTML = `
         <span class="brand-mark" aria-hidden="true"><i></i></span>
         <span class="brand-wordmark">The Quiet<br>Specimens</span>
       </a>
-      <nav class="primary-nav" aria-label="Essential controls">
-        <button class="utility compose-toggle" type="button" id="compose-settings" aria-controls="compose-panel" aria-expanded="false">Compose</button>
+      <nav class="primary-nav" aria-label="World controls">
+        <div class="mode-switch" role="group" aria-label="Workspace">
+          <button class="utility" type="button" id="observe-mode" aria-pressed="true">Observe</button>
+          <button class="utility compose-toggle" type="button" id="compose-settings" aria-controls="compose-panel" aria-pressed="false" disabled>Make</button>
+        </div>
+        <button class="utility observe-only" type="button" id="life-settings" aria-controls="residents-panel" aria-expanded="false">Residents</button>
+        <button class="utility observe-only" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
+        <button class="utility observe-only" type="button" id="view" title="Hide controls and focus on the world">Focus</button>
         <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
-        <button class="utility" type="button" id="view">View</button>
-        <button class="utility menu-toggle" type="button" id="more-controls" aria-controls="secondary-nav" aria-expanded="false">Menu</button>
+        <button class="utility menu-toggle" type="button" id="more-controls" aria-controls="secondary-nav" aria-expanded="false">More</button>
       </nav>
       <nav class="secondary-nav" id="secondary-nav" aria-label="More controls" hidden>
+        <button class="utility" type="button" id="audio-settings" aria-controls="audio-panel" aria-expanded="false">Sound mix</button>
         <a class="utility legacy" href="./legacy/">Legacy</a>
-        <button class="utility" type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">World</button>
-        <button class="utility" type="button" id="life-settings" aria-controls="residents-panel" aria-expanded="false">Residents</button>
-        <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
-        <button class="utility" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
-        <button class="utility" type="button" id="audio-settings" aria-controls="audio-panel" aria-expanded="false">Audio</button>
       </nav>
     </header>
     <div class="caption" id="caption">
@@ -50,7 +52,7 @@ element('app').innerHTML = `
       <h1 id="title">Elsewhere</h1>
       <p class="caption-line" id="subtitle">A world continuing beyond the frame.</p>
     </div>
-    <aside class="composer" id="compose-panel" aria-label="Place composer" hidden></aside>
+    <section class="composer" id="compose-panel" aria-label="World Composer" hidden></section>
     <section class="land-panel" id="land-panel" aria-label="World settings" hidden>
       <label>Terrain<select id="land-kind"></select></label>
       <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
@@ -76,7 +78,7 @@ element('app').innerHTML = `
         <label>Ground blend<input id="image-ground" type="range" min="0" max="100" value="73"></label>
         <button id="land-clear" type="button">Clear photo</button>
       </div>
-      <p class="land-note">The image stays in this browser session.</p>
+      <p class="land-note">An accepted photo is included in your local draft.</p>
     </section>
     <section class="land-panel resident-panel" id="residents-panel" aria-label="Resident browser" hidden>
       <div class="resident-actions"><button id="resident-atlas" type="button">Atlas</button><button id="open-life" type="button">Discover</button></div>
@@ -108,7 +110,7 @@ element('app').innerHTML = `
       </div>
       <p class="land-note" id="camera-help"></p>
     </section>
-    <button class="utility exit" type="button" id="exit" hidden>Exit view</button>
+    <button class="utility exit" type="button" id="exit" hidden>Exit focus</button>
     <div class="notice" id="notice" role="status" hidden></div>
 
     <div class="control-dock" id="controls" hidden>
@@ -172,7 +174,9 @@ let composer: WorldComposer | undefined;
 let lastReading = '';
 let lastSoundReading = '';
 let noteTimer = 0;
-let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | 'audio' | 'residents' | undefined;
+let panel: 'land' | 'image' | 'camera' | 'life' | 'audio' | 'residents' | undefined;
+let making = false;
+let draftLoading = true;
 const cameraMode = element<HTMLSelectElement>('camera-mode');
 const cameraResident = element<HTMLSelectElement>('camera-resident');
 let browseSeed = '';
@@ -240,6 +244,7 @@ try {
     syncMembership();
     syncWorldControls();
   }, (item, follow) => {
+    setWorkspace(false);
     showPanel(follow ? undefined : 'life');
     select(item, false);
     setMode(follow ? 'Observe' : 'Inspect');
@@ -269,7 +274,7 @@ function syncMembership() {
   const present = graphics?.has(current.genome.seed) ?? false;
   const member = element<HTMLButtonElement>('membership');
   member.textContent = present ? 'Remove from world' : 'Add to world';
-  member.disabled = !graphics || (!present && graphics.count >= worldLimit);
+  member.disabled = draftLoading || !composer || !graphics || (!present && graphics.count >= worldLimit);
   element('occupancy').textContent = graphics ? `${graphics.count} / ${worldLimit} in the world` : '';
   const residents = graphics?.residents ?? [];
   sound.setResidents(residents.map(specimen => ({ id: specimen.genome.seed, specimen })));
@@ -318,10 +323,8 @@ function pause(next: boolean) {
   syncMotion();
 }
 
-const click = (id: string, callback: () => void) => element(id).addEventListener('click', callback);
+const click = (id: string, callback: () => void) => element(id)?.addEventListener('click', callback);
 
-// Keep the landscape free of persistent navigation chrome.
-// Menu is a disclosure, not a second permanently visible toolbar.
 const menuButton = element<HTMLButtonElement>('more-controls');
 const secondaryNav = element<HTMLElement>('secondary-nav');
 function showMore(open: boolean) {
@@ -347,22 +350,17 @@ const landKind = element<HTMLSelectElement>('land-kind');
 for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
 landKind.value = defaultLand.kind;
 const landSeed = element<HTMLInputElement>('land-seed');
-const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-settings', 'land-panel'],
+const panels = { land: ['world-settings', 'land-panel'],
   residents: ['life-settings', 'residents-panel'], life: ['open-life', 'controls'],
   image: ['image-settings', 'image-panel'], audio: ['audio-settings', 'audio-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
 function showPanel(next?: keyof typeof panels) {
   showMore(false);
-  if (next === 'compose') {
-    if (!composer) return;
-    if (mode !== 'Observe') setMode('Observe');
-  }
   panel = next;
-  composer?.open(next === 'compose');
-  element('experience').classList.toggle('composing', next === 'compose');
+  element('experience').classList.toggle('make-overlay', making && Boolean(next));
   for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
     const [button, content] = panels[key];
     element(content).hidden = next !== key;
-    element(button).setAttribute('aria-expanded', String(next === key || (key === 'residents' && next === 'life')));
+    element(button)?.setAttribute('aria-expanded', String(next === key || (key === 'residents' && next === 'life')));
   }
   if (next === 'residents') updateResidents();
   if (next === 'camera') syncCameraControls();
@@ -370,6 +368,22 @@ function showPanel(next?: keyof typeof panels) {
 for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
   click(panels[key][0], () => showPanel(panel === key ? undefined : key));
 }
+function setWorkspace(make: boolean) {
+  if (making === make || (make && !composer)) return;
+  making = make;
+  showPanel();
+  if (mode !== 'Observe') setMode('Observe');
+  element('experience').classList.toggle('composing', make);
+  element('observe-mode').setAttribute('aria-pressed', String(!make));
+  element('compose-settings').setAttribute('aria-pressed', String(make));
+  composer?.open(make);
+}
+click('observe-mode', () => {
+  if (making) setWorkspace(false);
+  else if (mode !== 'Observe' || panel) { showPanel(); setMode('Observe'); }
+});
+click('compose-settings', () => setWorkspace(true));
+
 const value = (id: string) => Number(element<HTMLInputElement>(id).value) / 100;
 
 function applyLand() {
@@ -495,13 +509,18 @@ photoInput.addEventListener('change', () => {
   const file = photoInput.files?.[0];
   if (file && graphics) void graphics.setPhoto(file).then(loaded => {
     if (!loaded) return;
+    composer?.setDraftPhoto(file);
     element('photo-controls').hidden = false;
     applyImage();
     setMode('Observe');
   }).catch(error => notice(error instanceof Error ? error.message : 'Photo could not be loaded.'));
   photoInput.value = '';
 });
-click('land-clear', () => { graphics?.clearPhoto(); element('photo-controls').hidden = true; });
+click('land-clear', () => {
+  graphics?.clearPhoto();
+  composer?.setDraftPhoto();
+  element('photo-controls').hidden = true;
+});
 document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(button =>
   button.addEventListener('click', () => setMode(button.dataset.mode as GardenMode)));
 reference.addEventListener('change', () => {
@@ -571,6 +590,7 @@ function viewing(show: boolean) {
 click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
+  if (event.defaultPrevented) return;
   if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
   else if (event.key === 'Escape' && !secondaryNav.hidden) { showMore(false); menuButton.focus(); }
   else if (event.key === 'Escape' && panel) {
@@ -580,9 +600,17 @@ document.addEventListener('keydown', event => {
   }
 });
 
-element<HTMLButtonElement>('compose-settings').disabled = !composer;
 sound.setSpecimen(current);
 syncWorldControls();
 syncSelection();
 pause(isPaused);
 setMode('Observe');
+
+if (composer) {
+  void composer.recover().then(hasPhoto => {
+    element('photo-controls').hidden = !hasPhoto;
+    draftLoading = false;
+    syncMembership();
+    element<HTMLButtonElement>('compose-settings').disabled = false;
+  });
+}

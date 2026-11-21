@@ -1,3 +1,5 @@
+export const photoByteLimit = 20 * 1024 * 1024;
+
 export interface ImageSettings {
   mode: 'Backdrop' | 'Atmosphere';
   scale: number; x: number; y: number; horizon: number; blur: number; color: number; ground: number;

@@ -2,7 +2,7 @@ import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { boundLandscapePan, captureView, landscapeFrame, residentFrame, showView, SoftFollow } from './camera';
-import type { CameraMode, ObservationView } from './camera';
+import type { CameraMode } from './camera';
 import { PhotoEnvironment, defaultImage } from './photo';
 import type { ImageSettings } from './photo';
 import { inspectionPlinth } from './garden';
@@ -16,13 +16,15 @@ import { bodyPlans, buildSpecimen } from './morphology';
 import type { RigGround } from './morphology';
 import { GardenRelations } from './relations';
 import { ArrangeScene } from './composer/scene';
+import { MakeCamera } from './composer/camera';
+import type { MakeView } from './composer/camera';
 import type { Marker } from './composer/scene';
 import type { WorldDocument, WorldResident } from './world/document';
 import { safePosition, worldField } from './world/runtime';
 import { placeCenter } from './world/document';
 import type { WorldObject } from './world/document';
 import { Observatory, observationStations } from './observation/tour';
-import { thumbnail } from './observation/thumbnail';
+import { artifactThumbnail, thumbnail } from './observation/thumbnail';
 import { RecentMoments } from './observation/moments';
 import type { WorldMoment } from './observation/moments';
 
@@ -34,9 +36,9 @@ type Resident = { specimen: GardenSpecimen; rig: ReturnType<typeof buildSpecimen
 export class GardenView {
   private renderer: T.WebGLRenderer;
   private arranger: ArrangeScene;
-  private arranging?: 'Perspective' | 'Plan';
-  private navigating = false;
-  private arrangedFrom?: { mode: CameraMode; frame: ObservationView };
+  private arranging?: MakeView;
+  private makeCamera = new MakeCamera();
+  private editCameraReady = false;
   private activeWorld?: WorldDocument;
   private field?: ReturnType<typeof worldField>;
   private scene = new T.Scene();
@@ -339,26 +341,35 @@ export class GardenView {
     this.pose(item);
   }
 
-  setArrange(mode?: 'Perspective' | 'Plan', navigate = false) {
-    if (mode && !this.arranging) {
-      this.arrangedFrom = { mode: this.cameraMode, frame: captureView(this.worldCamera, this.cameraTarget) };
-      this.setCamera('Landscape');
-    }
-    const wasArranging = this.arranging;
+  setArrange(mode?: MakeView) {
     this.arranging = mode;
-    this.navigating = navigate;
-    const saved = this.arrangedFrom;
-    if (!mode && wasArranging && saved) {
-      this.arrangedFrom = undefined;
-      this.cameraMode = saved.mode === 'Soft Follow' && !this.beings.has(this.followSeed) ? 'Fixed' : saved.mode;
-      showView(this.worldCamera, this.cameraTarget, saved.frame);
-      this.follow.reset();
-    }
+    if (mode && !this.editCameraReady) this.resetMakeCamera();
     this.syncOrbit();
     if (this.mode === 'Observe') this.scene.fog = this.isPlanView ? null : new T.Fog(this.tint, 39, 145);
     this.arrangeMarkers([]);
-    if (!mode) { this.garden.objects.draft(); this.garden.objects.drag(); }
+    if (!mode) {
+      this.garden.objects.draft();
+      this.garden.objects.drag();
+      this.updateMarkers(0);
+    }
     this.applyImage();
+  }
+
+  resetMakeCamera() {
+    this.editCameraReady = true;
+    this.makeCamera.reset(this.garden.terrain);
+  }
+
+  navigateMake(action: 'orbit' | 'pan' | 'zoom', x: number, y = 0) {
+    if (!this.arranging) return;
+    if (action === 'zoom') this.makeCamera.zoom(this.arranging, x);
+    else this.makeCamera[action](this.arranging, x, y, Math.max(1, this.canvas.clientHeight), this.garden.terrain);
+  }
+
+  objectThumbnail(object: WorldObject) {
+    if (!this.available) return '';
+    try { return artifactThumbnail(this.renderer, object, this.environment.texture); }
+    catch { return ''; }
   }
 
   arrangeMarkers(markers: readonly Marker[]) {
@@ -366,9 +377,10 @@ export class GardenView {
     this.arranger.update(this.arranging === 'Plan' ? [area, ...markers] : markers, this.garden.terrain.height, Boolean(this.arranging));
   }
   arrangeDraft(item?: WorldObject) { this.garden.objects.draft(item); }
+  hideArrangeDraft() { this.garden.objects.hideDraft(); }
   arrangeDrag(item?: WorldObject) { this.garden.objects.drag(item); }
   arrangeHit(x: number, y: number, objects: boolean) {
-    return this.arranger.hit(x, y, this.arranging === 'Plan' ? this.arranger.plan : this.worldCamera,
+    return this.arranger.hit(x, y, this.arranging ? this.makeCamera.get(this.arranging) : this.worldCamera,
       this.garden.ground, objects ? this.garden.objects.groups() : []);
   }
 
@@ -522,8 +534,7 @@ export class GardenView {
 
   private syncOrbit() {
     const controls = this.worldOrbit;
-    const enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape'
-      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
+    const enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape' && !this.arranging;
     if (enabled && !controls.enabled) {
       const frame = captureView(this.worldCamera, this.cameraTarget);
       controls.enableDamping = false;
@@ -582,10 +593,11 @@ export class GardenView {
     this.motions = Array.from(this.beings.values(), item => item.movement);
     this.relations = new GardenRelations(next.terrain.settings.seed);
     this.moments.clear();
-    this.resetCamera();
+    if (this.arranging) this.resetMakeCamera();
+    else this.resetCamera();
   }
 
-  async setPhoto(file: File) {
+  async setPhoto(file: Blob) {
     const loaded = await this.photo.load(file);
     if (loaded) this.applyImage();
     return loaded;
@@ -661,6 +673,7 @@ export class GardenView {
     const world = this.worldCamera;
     world.aspect = aspect; world.updateProjectionMatrix();
     this.arranger.resize(aspect);
+    this.makeCamera.resize(aspect);
     this.applyImage();
     this.detailCamera.aspect = aspect;
     this.detailCamera.fov = portrait ? Math.min(61, 34 / aspect) : 33;
@@ -693,9 +706,10 @@ export class GardenView {
       } else if (this.study) this.pose(this.study, true);
     }
     if (!observe) this.orbit.update();
-    else if (!this.isPlanView) this.moveCamera(delta);
+    else if (!this.arranging && !this.isPlanView) this.moveCamera(delta);
     if (observe && !this.arranging && (this.cameraMode === 'Atlas' || this.marked) && ms - this.markersAt > 130) this.updateMarkers(ms);
     this.onFrame();
-    this.renderer.render(this.scene, observe ? (this.isPlanView ? this.arranger.plan : this.worldCamera) : this.detailCamera);
+    const camera = this.arranging ? this.makeCamera.get(this.arranging) : this.isPlanView ? this.arranger.plan : this.worldCamera;
+    this.renderer.render(this.scene, observe ? camera : this.detailCamera);
   };
 }

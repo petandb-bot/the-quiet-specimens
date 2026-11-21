@@ -6,6 +6,6 @@
 - **Observatory** holds four named viewpoints. Switch with Previous view and Next view. Auto-advance starts off and uses straight cuts at 100-second intervals when enabled.
 - **Atlas** uses the top-down Plan projection for observation. It leaves the current perspective frame intact. The blue square marks that frame's target.
 
-Reduce Motion starts on and responds when the system enables its reduced-motion preference. It widens the dead zone, lowers translation speed, and turns off remaining orbit damping. Compose uses an independent temporary editing view. Leaving it restores the observation frame. Inspect and Action retain their close-up camera.
+Reduce Motion starts on and responds when the system enables its reduced-motion preference. It widens the dead zone, lowers translation speed, and turns off remaining orbit damping. Make uses an independent temporary editing view. Leaving it restores the observation frame. Inspect and Action retain their close-up camera.
 
 [Controls and small events](OBSERVATION.md) · [Verification](VERIFICATION.md)

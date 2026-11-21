@@ -161,18 +161,32 @@ export class LandscapeObjects {
     if (current) place(current.group, item, this.height);
   }
 
+  hideDraft() { if (this.preview) this.preview.group.visible = false; }
+
   draft(item?: WorldObject) {
-    if (this.preview && (!item || item.seed !== this.preview.item.seed || item.kind !== this.preview.item.kind)) {
+    if (this.preview && (!item || item.seed !== this.preview.item.seed || item.kind !== this.preview.item.kind || item.finish !== this.preview.item.finish)) {
       this.preview.dispose();
       this.preview = undefined;
     }
     if (!item) return;
     if (!this.preview) {
       const ghost = makeArtifact(item);
-      ghost.group.traverse(child => { if (child instanceof T.Mesh) child.castShadow = false; });
+      const materials = new Set<T.Material>();
+      ghost.group.traverse(child => {
+        if (!(child instanceof T.Mesh)) return;
+        child.castShadow = false;
+        child.receiveShadow = false;
+        materials.add(child.material as T.Material);
+      });
+      for (const material of materials) {
+        material.transparent = true;
+        material.opacity = .46;
+        material.depthWrite = false;
+      }
       this.parent.add(ghost.group);
       this.preview = { ...ghost, item };
     }
+    this.preview.group.visible = true;
     place(this.preview.group, item, this.height);
   }
 

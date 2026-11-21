@@ -8,7 +8,8 @@
 | B2.1 · World Refinement | Landscape composition, terrain contact, manual and automatic cameras, photo settings | Merged in PR #1 |
 | B3 · Living Territories | Home ranges, bounded place memory, distinct rest patterns, occasional encounters and imitation | Merged in PR #1 |
 | B4.1 · Place Composer | Versioned world documents, object and place editing, resident placement, and undo and redo | Merged in PR #2 |
-| B4.1.1 · Still & Alive | Reliable audio, still and gentle cameras, World/Solo, Atlas and resident observation | Review branch |
+| B4.1.1 · Still & Alive | Reliable audio, still and gentle cameras, World/Solo, Atlas and resident observation | Merged in PR #3 |
+| B4.1.2 · Playful Composer | Observe and Make, direct placement, contextual tools, touch navigation, and one local working draft | Review branch |
 | B4.2 · Personal Land | Local terrain changes, surface regions, distinct world styles, light and fog, and photo palettes | Next development unit |
 | B4.3 · World Archive | IndexedDB worlds and images, portable files, thumbnails, and camera bookmarks | Planned |
 | B5.1 · Sound Ecology | Bounded multi-specimen responses, environmental resonance, and long-running audio | Planned |
@@ -23,4 +24,4 @@ Assembly, Fold, Orbit, and Root are future body-plan studies. The earlier aquari
 
 [World Refinement](ELSEWHERE.md) · [Living Territories](LIVING_TERRITORIES.md) · [Verification](VERIFICATION.md)
 
-[Place Composer](WORLD_COMPOSER.md) · [World Archive](WORLD_ARCHIVE.md)
+[World Composer](WORLD_COMPOSER.md) · [World Archive](WORLD_ARCHIVE.md)

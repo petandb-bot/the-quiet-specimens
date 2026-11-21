@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { clamp } from '../core/random';
+import { photoByteLimit } from './world/image-settings';
 
 export { defaultImage } from './world/image-settings';
 export type { ImageSettings } from './world/image-settings';
@@ -74,8 +75,8 @@ export class PhotoEnvironment {
     this.uniforms.blur.value.set(.034 * settings.blur / this.imageAspect, .034 * settings.blur);
   }
 
-  async load(file: File) {
-    if (file.size > 20 * 1024 * 1024) throw new Error('Choose an image smaller than 20 MB.');
+  async load(file: Blob) {
+    if (file.size > photoByteLimit) throw new Error('Choose an image smaller than 20 MB.');
     if (file.type === 'image/svg+xml') throw new Error('Choose a raster photo such as JPEG, PNG or WebP.');
     const request = ++this.request;
     const url = URL.createObjectURL(file);
