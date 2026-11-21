@@ -21,7 +21,7 @@ HINGE と RELAY は急な勾配を避け、進行方向の近くから迂回方�
 - **Wander** はランドマークの近くや開けた地点をゆっくり移動する。中間地点を補間し、地面や高い構造物と距離を取る。
 - **Follow** は選択した個体の進行方向に応じて、個体とその周囲を斜め後ろから映す。Resident から選択できる。対象が庭園からいなくなると Landscape に戻る。
 - **Inspect / Action** は個体の近接観察。**Reset camera** は最初の Landscape に戻る。**Reduce camera motion** は Wander を静止させ、Follow の追従と手動操作の慣性を抑える。OS の動き軽減設定を初期値に使う。
-- **View** は操作欄を隠す。Exit view または Escape で戻る。
+- **Focus** は操作欄を隠す。Exit focus または Escape で戻る。
 
 ## Photo Environment
 

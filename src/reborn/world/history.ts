@@ -15,6 +15,14 @@ export class WorldHistory {
   get canRedo() { return Boolean(this.future.length); }
   get changed() { return this.present !== this.initial; }
 
+  restore(world: WorldDocument) {
+    if (!isWorldDocument(world)) return false;
+    this.present = this.initial = world;
+    this.past.length = 0;
+    this.future.length = 0;
+    return true;
+  }
+
   commit(next: WorldDocument) {
     if (next === this.present || !isWorldDocument(next)) return false;
     this.past.push(this.present);

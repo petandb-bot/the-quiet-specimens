@@ -1,13 +1,24 @@
-# Place Composer
+# World Composer
 
-Open **Compose** to enter the editor. **Perspective** frames edits in the landscape. **Navigate** turns on orbit controls until you switch back to placement. **Plan** uses a top-down view. The editing camera and terrain raycast use the same world as Observe.
+Open **Make** to create a world. Choose a form in **Objects** and point at the ground to see a translucent preview. Click or tap once to place it. The form stays active for the next placement. **Randomize** changes the active form's seed and thumbnail. Open **Seed** to repeat a particular variation.
 
-1. In **Objects**, pick a form and choose **Preview object**. Edit its seed or use **Randomize** while previewing.
-2. Click or tap the ground to place it. Select an object in the scene or list, then drag it or edit its coordinates. Finish, rotation, size, and height are available, along with duplicate and delete.
-3. In **Places**, select a role and click the ground or an object. Drag an independent place to move it. A linked place moves with the object. [Place system](PLACE_SYSTEM.md)
-4. In **Life**, choose a resident and mark its start, home, or preferred area. If a spot is obstructed the editor can use nearby safe ground. Inspect and Follow leave the editor to show the chosen resident.
-5. Use **Undo** and **Redo**, or Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z. A completed drag counts as one edit. On a phone, **Hide tools** makes more of the field available while keeping the current tool active.
+| Tool | What it does |
+| --- | --- |
+| **Select** | Opens the controls for an object you click or tap. Click empty ground to clear the selection. |
+| **Move** | Drags an object over the terrain. An independent place can be dragged from the **Places** tab. |
+| **Place** | Stamps the form from the palette. |
+| **Camera** | Drags the view without changing the layout. **Plan** gives you a top-down view with a field boundary. |
 
-Compose pauses resident motion. Closing the editor resumes its previous pause state. **View** removes the editor and its range markers for observation. The session accepts up to 40 objects, 24 places, and nine residents.
+On a computer, hold **Space** and drag to turn the camera from any tool. Right-drag pans and the mouse wheel zooms. In **Plan**, Space-drag pans. On a phone, use **Camera** to drag with one finger, or pan and pinch with two fingers in any tool. **Esc** returns to Select after you close Help. **?** opens the quick start and shortcuts.
 
-[World document](WORLD_DOCUMENT.md) · [Object design](OBJECT_DESIGN.md) · [Verification](VERIFICATION.md)
+With an object selected, drag the Rotate or Scale slider, choose a finish, or use **Move**, **Duplicate**, and **Delete**. Coordinates, seed and height are in **Advanced**. **Undo** and **Redo** work for world edits, including whole drags and each placement in a series. Use Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z from the keyboard.
+
+**Places** adds a region or links a place to a structure. **Residents** sets where a specimen starts, lives, or prefers to visit. Obstructed resident placements can use nearby safe ground. **Inspect** and **Follow** bring you to Observe with the selected resident. **Terrain** and **Photo** open directly from the Make dock.
+
+Make pauses resident motion while you edit. **Observe** resumes the previous motion state and returns to the observation camera. **Focus** clears the controls and guide marks. Sound is available in both workspaces. Each world can hold 40 objects, 24 places, and nine residents.
+
+## Local working draft
+
+World edits and the last accepted photo are automatically saved in one IndexedDB working draft per browser profile and site. **Saved on this browser** confirms the write. It restores on reload when browser storage is available. Photo changes save alongside the layout and the photo file selection is outside the Undo history. Reopening restores residents' settings and starts fresh motion, camera, and Undo history. Clearing the site's data removes the draft. If another tab has saved a newer draft, reload this tab before continuing. The newer draft is protected from being overwritten.
+
+[Places](PLACE_SYSTEM.md) · [World document](WORLD_DOCUMENT.md) · [World Archive](WORLD_ARCHIVE.md) · [Verification](VERIFICATION.md)
