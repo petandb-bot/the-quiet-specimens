@@ -13,7 +13,7 @@ export const editorMarkup = `
   <div class="make-dock">
     <div class="make-tools">
       <div class="make-group" role="group" aria-label="Canvas tool">
-        <button type="button" data-tool="select" title="Select a shape to edit"><span aria-hidden="true">↖</span>Select</button>
+        <button type="button" data-tool="select" title="Select a shape to edit"><span aria-hidden="true" class="make-select-mark"></span>Select</button>
         <button type="button" data-tool="move" title="Drag a shape to move it"><span aria-hidden="true">✥</span>Move</button>
         <button type="button" data-tool="place" title="Place the current shape"><span aria-hidden="true">+</span>Place</button>
         <button type="button" data-tool="camera" title="Drag to move the camera"><span aria-hidden="true">↻</span>Camera</button>

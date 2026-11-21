@@ -99,9 +99,9 @@ export class WorldComposer {
         this.history.restore(draft.world);
         this.refresh(false);
         if (draft.photo) {
+          this.photo = draft.photo;
           try {
             if (!await this.garden.setPhoto(draft.photo)) throw new Error('Photo was not restored');
-            this.photo = draft.photo;
           } catch {
             this.recoveryStatus('Draft restored · photo unavailable');
             return false;

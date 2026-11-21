@@ -75,6 +75,14 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 .make-group { display: flex; gap: 3px; align-items: stretch; }
 .make-group button, .make-group select { white-space: nowrap; }
 .make-tools [data-tool] span { font-family: system-ui, sans-serif; font-size: 1.04em; margin-right: 4px; }
+.make-tools .make-select-mark {
+  display: inline-block;
+  width: 10px;
+  height: 11px;
+  vertical-align: -1px;
+  background: currentColor;
+  clip-path: polygon(9% 0, 100% 61%, 61% 66%, 77% 93%, 55% 100%, 37% 72%, 12% 96%);
+}
 .make-history { margin-left: auto; }
 .make-history button { font-size: 1.27rem; line-height: 1; }
 .make-view button { font: 700 1rem/1 "Space Grotesk", system-ui, sans-serif; }

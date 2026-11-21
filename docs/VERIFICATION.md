@@ -144,3 +144,32 @@ A ten-minute browser session ran with the integrated Fixed camera and World Audi
 ### Device and release notes
 
 Chromium software WebGL and browser audio graph capture establish the tested rendering and output paths. Physical-GPU performance, Safari and Edge on their target devices, device output levels, and motion comfort for individual viewers need device testing. The release build for B4.1.1 is prepared for review. The published site still runs the existing main build.
+
+## B4.1.2 Playful Composer
+
+Development started from latest main `6f9f8f4` (Quiet Observation UI). Clean install, all 59 Vitest checks, the TypeScript/Vite production build and `node scripts/check-dist.mjs` passed. The new checks cover repeatable stamps, placement and count bounds, validation and history recovery, and independently bounded Make cameras. Existing contact, obstacle, resident behavior, sound and photo tests continue to run.
+
+### Chromium and production assets
+
+The production build was served at `/the-quiet-specimens/`. Playwright drove Chromium 156.0.8078.79 on Linux with WebGL 2 through ANGLE/SwiftShader.
+
+- At 1280 × 820, a palette choice armed Place. Two clicks produced two objects with distinct identities and the same seed, scale and rotation. Undo and Redo kept Place armed. Select opened the inspector without placement or movement. Move updated the saved coordinates in one Undo step. Finish, scale, rotation, seed, duplicate and delete all applied to the selected form.
+- Space-drag and the mouse wheel moved the Make camera while Place stayed active. Subsequent ray hits matched the expected Plan pan and zoom. The Observatory station survived a round trip through the independent Make camera. Fixed, Landscape, Soft Follow, Atlas, Inspect, Action and Focus also rendered.
+- A linked region followed its object reference and an independent region could be moved. Resident membership, home and preferred-area edits survived normal Undo. Rolling Field, Terraces and Hollow Land rendered, and a new terrain seed was applied and undone. The existing tests exercise simulated contact and clear resident placement around obstacles.
+- A JPEG rendered as both Backdrop and Atmosphere, and the layout, photo and image mode survived reload. The app created a new Undo baseline. A second same-origin tab wrote a newer draft revision through IndexedDB. The earlier editor reported the conflict and did not overwrite the newer revision. Clearing the photo stayed cleared after reopening. Legacy rendered its WebGL canvas from the production entry. The completed browser passes reported no JavaScript or shader errors.
+- The master Web Audio output showed a signal during World playback and Audition. Ending Audition restored the earlier Sound off state. Sound was accessible in both workspaces.
+- At 390 × 844 with Chromium touch emulation, taps placed consecutive objects. A two-finger pinch changed the camera with no extra placement. The next tap placed the chosen form, Move dragged an earlier object, and Undo/Redo restored the coordinates. The page stayed within the viewport and Observe closed the editor. A second 320 × 668 touch layout check also placed an object without horizontal overflow.
+
+### Captures
+
+- [Observe](screenshots/playful-composer/observe.jpg)
+- [Make with a placement preview](screenshots/playful-composer/make.jpg)
+- [Object selection and contextual controls](screenshots/playful-composer/selection.jpg)
+- [Quick start](screenshots/playful-composer/quick-start.jpg)
+- [Make on a 390 px touch viewport](screenshots/playful-composer/mobile-make.jpg)
+
+The low dock keeps the desktop foreground visible during placement. The preview outline and pale form show the next location before the click. Plan makes the footprint and selected shape easy to read, while Perspective retains the landscape's depth. The touch layout keeps the tools grouped at the bottom and leaves open ground available for taps.
+
+### Scope
+
+The working draft covers scenes and an accepted photo in this browser profile. Undo history, the current camera and live resident activity reset on reload. Selecting, replacing or clearing the photo file saves the new attachment separately from layout Undo. Physical iPhone Safari and Android devices, hardware-GPU performance and long-session storage eviction were outside this pass.
