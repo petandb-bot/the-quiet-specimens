@@ -17,6 +17,7 @@ export class GardenRelations {
     this.rng = random(seed + '/relations');
   }
 
+  get time() { return this.elapsed; }
   get events(): readonly RelationEvent[] { return this.recent; }
 
   remove(resident: GardenMotion, remaining: readonly GardenMotion[]) {

@@ -1,8 +1,8 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { boundLandscapePan, landscapeFrame, wanderFrame, followFrame, keptAboveLand } from './camera';
-import type { CameraMode } from './camera';
+import { boundLandscapePan, captureView, landscapeFrame, residentFrame, showView, SoftFollow } from './camera';
+import type { CameraMode, ObservationView } from './camera';
 import { PhotoEnvironment, defaultImage } from './photo';
 import type { ImageSettings } from './photo';
 import { inspectionPlinth } from './garden';
@@ -19,7 +19,12 @@ import { ArrangeScene } from './composer/scene';
 import type { Marker } from './composer/scene';
 import type { WorldDocument, WorldResident } from './world/document';
 import { safePosition, worldField } from './world/runtime';
+import { placeCenter } from './world/document';
 import type { WorldObject } from './world/document';
+import { Observatory, observationStations } from './observation/tour';
+import { thumbnail } from './observation/thumbnail';
+import { RecentMoments } from './observation/moments';
+import type { WorldMoment } from './observation/moments';
 
 export type GardenMode = 'Observe' | 'Inspect' | 'Action';
 export const worldLimit = 9;
@@ -31,19 +36,26 @@ export class GardenView {
   private arranger: ArrangeScene;
   private arranging?: 'Perspective' | 'Plan';
   private navigating = false;
-  private arrangedFrom: CameraMode = 'Landscape';
+  private arrangedFrom?: { mode: CameraMode; frame: ObservationView };
   private activeWorld?: WorldDocument;
   private field?: ReturnType<typeof worldField>;
   private scene = new T.Scene();
   private worldCamera = new T.PerspectiveCamera(40, 1, .15, 170);
-  private cameraMode: CameraMode = 'Landscape';
+  private cameraMode: CameraMode = 'Fixed';
   private focusSeed = '';
   private cameraTarget = new T.Vector3(0,1, -4);
   private photo: PhotoEnvironment;
   private imageSettings = { ...defaultImage };
-  private stillCamera = false;
-  private cameraClock = 0;
-  private followHeading = 0;
+  private stillCamera = true;
+  private followSeed = '';
+  private follow = new SoftFollow();
+  private subject = new T.Vector3();
+  private observatory = new Observatory();
+  private stationName = '';
+  private marked?: { seed: string; until: number };
+  private markersAt = -Infinity;
+  private thumbnails = new Map<string, string>();
+  private moments = new RecentMoments();
   private worldOrbit: OrbitControls;
   private groundColor = new T.Color('#ffffff');
   private studioBackground = new T.Color('#e7e3d6');
@@ -56,8 +68,6 @@ export class GardenView {
   private groundAlign = new T.Quaternion();
   private yawAlign = new T.Quaternion();
   private up = new T.Vector3(0,1,0);
-  private cameraPos = new T.Vector3();
-  private nextTarget = new T.Vector3();
   private key!: T.DirectionalLight;
   private worldClock = 0;
   private detailCamera = new T.PerspectiveCamera(33, 1, .08, 50);
@@ -127,7 +137,11 @@ export class GardenView {
     this.scene.fog = new T.Fog(this.tint, 39, 115);
     this.worldOrbit = new OrbitControls(this.worldCamera, canvas);
     this.worldOrbit.target.copy(this.cameraTarget);
-    this.worldOrbit.enableDamping = true;
+    this.worldOrbit.enableDamping = false;
+    this.worldOrbit.enabled = false;
+    this.worldOrbit.dampingFactor = .27;
+    this.worldOrbit.zoomSpeed = .47;
+    this.worldOrbit.rotateSpeed = .62;
     this.worldOrbit.minDistance = 7;
     this.worldOrbit.maxDistance = 80;
     this.worldOrbit.maxPolarAngle = Math.PI * .485;
@@ -135,8 +149,9 @@ export class GardenView {
     this.orbit = new OrbitControls(this.detailCamera, canvas);
     this.orbit.target.set(0, .98, 0);
     this.orbit.enablePan = false;
-    this.orbit.enableDamping = true;
-    this.orbit.dampingFactor = .09;
+    this.orbit.enableDamping = false;
+    this.orbit.dampingFactor = .27;
+    this.orbit.zoomSpeed = .48;
     this.orbit.minDistance = 2.65;
     this.orbit.maxDistance = 13;
     this.orbit.maxPolarAngle = Math.PI * .53;
@@ -154,6 +169,7 @@ export class GardenView {
       this.environment = this.reflections();
       this.scene.environment = this.environment.texture;
       this.available = true;
+      this.thumbnails.clear();
       this.onError('');
     });
     canvas.addEventListener('pointerdown', event => {
@@ -169,6 +185,21 @@ export class GardenView {
       const start = this.press;
       this.press = undefined;
       if (!start || event.pointerId !== start.id || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) return;
+      if (this.cameraMode === 'Atlas' && this.mode === 'Observe') {
+        const hit = this.arranger.hit(event.clientX, event.clientY, this.arranger.plan, this.garden.ground, []);
+        if (hit.ground) {
+          const [x, z] = hit.ground;
+          let best = 2.45;
+          let chosen: Resident | undefined;
+          for (const resident of this.beings.values()) {
+            const pose = resident.movement.pose;
+            const distance = Math.hypot(pose.x - x, pose.z - z);
+            if (distance < best) { chosen = resident; best = distance; }
+          }
+          if (chosen) { this.locate(chosen.specimen.genome.seed); this.onSelect(chosen.specimen); }
+        }
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       this.cursor.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
       const residents = this.mode === 'Observe' ? [...this.beings.values()] : this.study ? [this.study] : [];
@@ -310,15 +341,21 @@ export class GardenView {
 
   setArrange(mode?: 'Perspective' | 'Plan', navigate = false) {
     if (mode && !this.arranging) {
-      this.arrangedFrom = this.cameraMode;
+      this.arrangedFrom = { mode: this.cameraMode, frame: captureView(this.worldCamera, this.cameraTarget) };
       this.setCamera('Landscape');
     }
     const wasArranging = this.arranging;
     this.arranging = mode;
     this.navigating = navigate;
-    if (!mode && wasArranging) this.setCamera(this.arrangedFrom);
-    if (mode) this.worldOrbit.enabled = mode === 'Perspective' && navigate;
-    if (this.mode === 'Observe') this.scene.fog = mode === 'Plan' ? null : new T.Fog(this.tint, 39, 145);
+    const saved = this.arrangedFrom;
+    if (!mode && wasArranging && saved) {
+      this.arrangedFrom = undefined;
+      this.cameraMode = saved.mode === 'Soft Follow' && !this.beings.has(this.followSeed) ? 'Fixed' : saved.mode;
+      showView(this.worldCamera, this.cameraTarget, saved.frame);
+      this.follow.reset();
+    }
+    this.syncOrbit();
+    if (this.mode === 'Observe') this.scene.fog = this.isPlanView ? null : new T.Fog(this.tint, 39, 145);
     this.arrangeMarkers([]);
     if (!mode) { this.garden.objects.draft(); this.garden.objects.drag(); }
     this.applyImage();
@@ -344,9 +381,10 @@ export class GardenView {
     if (!item) return false;
     item.rig.dispose();
     this.beings.delete(seed);
+    this.thumbnails.delete(seed);
     this.motions = this.motions.filter(motion => motion !== item.movement);
     this.relations.remove(item.movement, this.motions);
-    if (this.cameraMode === 'Follow' && this.focusSeed === seed) this.setCamera('Landscape');
+    if (this.cameraMode === 'Soft Follow' && this.followSeed === seed) this.setCamera('Fixed');
     return true;
   }
 
@@ -356,7 +394,7 @@ export class GardenView {
     const observe = mode === 'Observe';
     this.site.visible = observe;
     this.scene.background = observe ? this.sky : this.studioBackground;
-    this.scene.fog = observe && this.arranging !== 'Plan' ? new T.Fog(this.tint, 39, 145) : null;
+    this.scene.fog = observe && !this.isPlanView ? new T.Fog(this.tint, 39, 145) : null;
     this.applyImage();
     if(observe)this.key.position.set(-19,32,19);else this.key.position.set(-4.8,9.3,4.7);
     const size = observe ? 33 : 10;
@@ -364,9 +402,10 @@ export class GardenView {
     shadow.left=-size;shadow.right=size;shadow.top=size;shadow.bottom=-size;shadow.updateProjectionMatrix();
     this.garden.root.visible = observe;
     this.plinth.visible = !observe;
+    if (!observe) this.arranger.update([], this.garden.terrain.height, false);
+    else if (!this.arranging) this.updateMarkers(0);
     this.orbit.enabled = !observe;
-    this.worldOrbit.enabled = observe && this.cameraMode === 'Landscape'
-      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
+    this.syncOrbit();
     if (!observe && this.study?.specimen.genome.seed !== specimen.genome.seed) {
       this.study?.rig.dispose();
       const item = this.resident(specimen, [0, 0], -1, true);
@@ -384,29 +423,136 @@ export class GardenView {
     }
   }
 
-  setCamera(mode: CameraMode) {
-    this.cameraMode = mode === 'Follow' && !this.beings.has(this.focusSeed) ? 'Landscape' : mode;
-    this.worldOrbit.enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape'
-      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
-    if (this.cameraMode === 'Landscape') {
-      this.worldOrbit.target.copy(this.cameraTarget);
-      this.worldOrbit.update();
+  setCamera(mode: CameraMode, seed = this.focusSeed) {
+    if (mode === 'Soft Follow') {
+      const resident = this.beings.get(seed);
+      if (resident) {
+        const p = resident.movement.pose;
+        residentFrame(this.garden.terrain, [p.x, p.z], this.worldCamera, this.cameraTarget);
+        this.followSeed = seed;
+        this.follow.reset();
+      } else mode = 'Fixed';
     }
+    this.cameraMode = mode;
+    if (mode === 'Observatory') {
+      const homes = Array.from(this.beings.values(), item => item.movement.territory?.home ?? [0, 0] as GroundPoint);
+      this.observatory.load(observationStations(this.garden.terrain, this.worldCamera.aspect < 1, homes));
+      this.showStation(this.observatory.station);
+    }
+    this.marked = undefined;
+    if (!this.arranging) this.updateMarkers(0);
+    if (this.mode === 'Observe') this.scene.fog = this.isPlanView ? null : new T.Fog(this.tint, 39, 145);
+    this.applyImage();
+    this.syncOrbit();
+  }
+
+  private get isPlanView() { return this.arranging === 'Plan' || (!this.arranging && this.cameraMode === 'Atlas'); }
+  get observationStation() { return this.cameraMode === 'Observatory' ? this.stationName : ''; }
+  setObservationAuto(value: boolean) { this.observatory.auto = value; }
+  nextStation(direction: number) { if (this.cameraMode === 'Observatory') this.showStation(this.observatory.step(direction)); }
+
+  private showStation(station: Observatory['station']) {
+    if (!station) return;
+    showView(this.worldCamera, this.cameraTarget, {
+      ...station, zoom: this.worldCamera.zoom, fov: this.worldCamera.fov,
+    });
+    this.stationName = station.name;
+  }
+
+  residentPose(seed: string) { return this.beings.get(seed)?.movement.pose; }
+
+  residentThumbnail(item: GardenSpecimen) {
+    const seed = item.genome.seed;
+    if (!this.thumbnails.has(seed) && this.available) {
+      try { this.thumbnails.set(seed, thumbnail(this.renderer, item, this.environment.texture)); }
+      catch { return ''; }
+    }
+    return this.thumbnails.get(seed) ?? '';
+  }
+
+  locate(seed: string) {
+    const pose = this.residentPose(seed);
+    if (!pose) return false;
+    if (this.cameraMode !== 'Atlas') {
+      this.setCamera('Fixed');
+      const terrain = this.garden.terrain;
+      const position = this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z).project(this.worldCamera);
+      if (Math.abs(position.x) > .77 || Math.abs(position.y) > .72 || Math.abs(position.z) > 1) {
+        residentFrame(terrain, [pose.x, pose.z], this.worldCamera, this.cameraTarget);
+      }
+    }
+    this.marked = { seed, until: performance.now() + 5200 };
+    this.updateMarkers(performance.now());
+    return true;
+  }
+
+  clearLocate() {
+    this.marked = undefined;
+    if (this.cameraMode === 'Atlas') this.setCamera('Fixed');
+    else if (!this.arranging) this.updateMarkers(0);
+  }
+
+  private updateMarkers(ms: number) {
+    const atlas = this.cameraMode === 'Atlas';
+    const now = performance.now();
+    if (this.marked && now > this.marked.until) this.marked = undefined;
+    const markers: Marker[] = [];
+    if (atlas) {
+      markers.push({ center: [0, 0], radius: worldBounds.x, color: '#6a7867', square: true });
+      markers.push({ center: [this.cameraTarget.x, this.cameraTarget.z], radius: 2.4, color: '#2a5478', selected: true, square: true });
+      for (const zone of this.activeWorld?.places ?? []) if (zone.enabled) markers.push({
+        center: placeCenter(zone, this.activeWorld!.objects), radius: zone.radius, color: '#6b5170',
+      });
+      for (const item of this.garden.terrain.landmarks) if (!item.distant && item.scale > 1.35) {
+        markers.push({ center: [item.x, item.z], radius: item.radius + .2, color: '#635747' });
+      }
+    }
+    if (atlas || this.marked) {
+      for (const [seed, item] of this.beings) {
+        const selected = this.marked?.seed === seed;
+        if (!atlas && !selected) continue;
+        const p = item.movement.pose;
+        markers.push({ center: [p.x, p.z], radius: selected ? 1.7 : 1.0,
+          color: selected ? '#b13721' : '#3d5c50', selected });
+      }
+    }
+    this.markersAt = ms;
+    this.arranger.update(markers, this.garden.terrain.height, markers.length > 0);
+  }
+
+  private syncOrbit() {
+    const controls = this.worldOrbit;
+    const enabled = this.mode === 'Observe' && this.cameraMode === 'Landscape'
+      && (!this.arranging || (this.arranging === 'Perspective' && this.navigating));
+    if (enabled && !controls.enabled) {
+      const frame = captureView(this.worldCamera, this.cameraTarget);
+      controls.enableDamping = false;
+      controls.update();
+      showView(this.worldCamera, this.cameraTarget, frame);
+      controls.target.copy(this.cameraTarget);
+      controls.enableDamping = !this.stillCamera;
+      controls.update();
+    }
+    controls.enabled = enabled;
   }
 
   get camera() { return this.cameraMode; }
 
   resetCamera() {
-    this.cameraClock = 0;
-    this.setCamera('Landscape');
+    this.follow.reset();
+    if (!this.arranging) this.setCamera('Fixed');
     landscapeFrame(this.garden.terrain, this.worldCamera.aspect < 1, this.worldCamera.position, this.cameraTarget);
+    boundLandscapePan(this.worldCamera.position, this.cameraTarget, this.garden.terrain);
     this.worldCamera.zoom = 1;
+    this.worldCamera.fov = this.worldCamera.aspect < 1 ? 53 : 40;
     this.worldCamera.updateProjectionMatrix();
+    this.worldCamera.lookAt(this.cameraTarget);
+    this.worldCamera.updateMatrixWorld();
     this.worldOrbit.target.copy(this.cameraTarget);
-    this.worldOrbit.update();
   }
 
   zoom(factor: number) {
+    if (this.mode === 'Observe' && this.isPlanView) return;
     const lens = this.mode === 'Observe' ? this.worldCamera : this.detailCamera;
     lens.zoom = Math.min(1.9, Math.max(.66, lens.zoom * factor));
     lens.updateProjectionMatrix();
@@ -435,6 +581,7 @@ export class GardenView {
     }
     this.motions = Array.from(this.beings.values(), item => item.movement);
     this.relations = new GardenRelations(next.terrain.settings.seed);
+    this.moments.clear();
     this.resetCamera();
   }
 
@@ -457,7 +604,7 @@ export class GardenView {
   private applyImage() {
     const s = this.imageSettings, visible = this.mode === 'Observe';
     const strength = this.photo.loaded ? s.color : 0;
-    const backdrop = visible && this.arranging !== 'Plan';
+    const backdrop = visible && !this.isPlanView;
     this.sky.copy(this.clearSky).lerp(this.photo.tint, strength * .75);
     this.tint.copy(this.sky).lerp(this.photo.tint, strength * .29);
     const fog = this.scene.fog;
@@ -471,31 +618,37 @@ export class GardenView {
 
   private moveCamera(dt: number) {
     const terrain = this.garden.terrain;
-    if (this.cameraMode === 'Follow' && !this.beings.has(this.focusSeed)) this.setCamera('Landscape');
-    if (this.cameraMode === 'Landscape') {
+    if (this.cameraMode === 'Landscape' && this.worldOrbit.enabled) {
       const orbit = this.worldOrbit;
       orbit.update();
       boundLandscapePan(this.worldCamera.position, orbit.target, terrain);
       this.cameraTarget.copy(orbit.target);
       return;
     }
-    if (this.stillCamera && this.cameraMode === 'Wander') return;
-    const elapsed = Math.min(dt, .1);
-    this.cameraClock += elapsed;
-    const pos = this.cameraPos, target = this.nextTarget;
-    const resident = this.beings.get(this.focusSeed);
-    if (resident && this.cameraMode === 'Follow') {
-      const p = resident.movement.pose, delta = p.yaw - this.followHeading;
-      this.followHeading += Math.atan2(Math.sin(delta), Math.cos(delta)) * (1 - Math.exp(-elapsed * .58));
-      followFrame(p, this.followHeading, terrain, pos, target);
-    } else wanderFrame(this.cameraClock, terrain, pos, target);
-    pos.y = keptAboveLand(pos, terrain, target);
-    const k = 1 - Math.exp(-elapsed * (this.stillCamera ? .64 : 1.35));
-    this.worldCamera.position.lerp(pos, k);
-    this.worldCamera.position.y = keptAboveLand(this.worldCamera.position, terrain);
-    this.cameraTarget.lerp(target, k);
-    this.worldCamera.lookAt(this.cameraTarget);
+    if (this.cameraMode === 'Observatory') this.showStation(this.observatory.advance(dt));
+    if (this.cameraMode !== 'Soft Follow') return;
+    const pose = this.beings.get(this.followSeed)?.movement.pose;
+    if (!pose) { this.setCamera('Fixed'); return; }
+    this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z);
+    this.follow.advance(dt, this.worldCamera, this.cameraTarget, this.subject, terrain, this.stillCamera);
   }
+  soundPresence(seed: string) {
+    const pose = this.beings.get(seed)?.movement.pose;
+    return { x: pose?.x ?? 0, z: pose?.z ?? 0, resting: pose?.phase === 'Rest' || this.paused,
+      gathering: pose?.intent === 'Gather' };
+  }
+
+  soundPoints() { return this.garden.terrain.points; }
+  soundEvents() { return this.relations.events.filter(event => this.relations.time - event.at < 2.6); }
+
+  recentMoments(): readonly WorldMoment[] {
+    return [...this.moments.recent(this.worldClock), ...this.relations.events
+      .filter(event => event.kind !== 'Follow')
+      .map(event => ({ ...event, kind: event.kind === 'Imitation' ? 'Imitation' as const : 'Encounter' as const,
+        at: this.worldClock - this.relations.time + event.at }))]
+      .sort((a, b) => b.at - a.at).slice(0, 8);
+  }
+
   setPaused(paused: boolean) { this.paused = paused; }
   perform(action: Gesture) { this.study?.movement.perform(action); }
   getPose(seed: string) { return this.mode === 'Observe' ? this.beings.get(seed)?.movement.pose : this.study?.movement.pose; }
@@ -506,7 +659,7 @@ export class GardenView {
     const aspect = width / height;
     const portrait = aspect < 1;
     const world = this.worldCamera;
-    world.aspect=aspect;world.fov=portrait?53:40;world.updateProjectionMatrix();
+    world.aspect = aspect; world.updateProjectionMatrix();
     this.arranger.resize(aspect);
     this.applyImage();
     this.detailCamera.aspect = aspect;
@@ -527,6 +680,10 @@ export class GardenView {
       for (let i = 0; i < steps; i++) {
         for (const motion of this.motions) motion.step(stepSeconds, this.motions);
         this.relations.step(stepSeconds, this.motions);
+        for (const motion of this.motions) {
+          const seen = motion.takeMoment();
+          if (seen) this.moments.add({ ...seen, actor: motion.seed, at: this.worldClock + (i + 1) * stepSeconds });
+        }
         this.study?.movement.step();
       }
       this.worldClock += steps * stepSeconds;
@@ -536,8 +693,9 @@ export class GardenView {
       } else if (this.study) this.pose(this.study, true);
     }
     if (!observe) this.orbit.update();
-    else if (this.arranging !== 'Plan') this.moveCamera(delta);
+    else if (!this.isPlanView) this.moveCamera(delta);
+    if (observe && !this.arranging && (this.cameraMode === 'Atlas' || this.marked) && ms - this.markersAt > 130) this.updateMarkers(ms);
     this.onFrame();
-    this.renderer.render(this.scene, observe ? (this.arranging === 'Plan' ? this.arranger.plan : this.worldCamera) : this.detailCamera);
+    this.renderer.render(this.scene, observe ? (this.isPlanView ? this.arranger.plan : this.worldCamera) : this.detailCamera);
   };
 }

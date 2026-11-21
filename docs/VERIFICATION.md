@@ -114,3 +114,33 @@ The visual pass moved the two forms into the foreground and midground while reta
 - [World with controls hidden](screenshots/personal-places/observed-world.jpg)
 
 This review build covers the session editor. Sculpting, surface regions, style presets, a persistent archive, portable photos, and camera bookmarks belong to B4.2 and B4.3. Physical iPhone Safari, hardware GPU performance, and long-duration GPU resource tests remain open.
+
+## B4.1.1 Still & Alive
+
+### Published baseline and audio recovery
+
+Development started from `48c9873`, the merged B4.1 and Vite Pages build. GitHub Actions reported a successful Pages deployment. A browser visit to that published app returned HTTP 200 and began producing audio 4.77 seconds after clicking Sound. The AudioContext was running on that visit. The previous score applied a probability gate to its initial note, which explains the delay in this reproduction.
+
+The recovery build produced actual master output in 0.36 seconds. The World Audio build did so in 0.32 seconds. In both runs the audio graph passed through Chromium's real-time AudioContext. Playwright checked zero volume, a return to the prior audio state after Audition, stopping and restarting with one context, and Audio Reset creating a fresh context. Vitest covers a refused start, a user retry, and visibility recovery. Those visibility checks are simulated.
+
+The [stereo WAV](audio/still-and-alive.wav) contains 7.20 seconds of post-master World output captured from the browser at 44.1 kHz. Its absolute peak was 0.0573 and RMS was 0.00436. All captured samples were finite. The scheduler test covers twelve simulated minutes with all nine residents, bounded concurrency and new-entry rates, a capped response to a given encounter, and single-track removal.
+
+### Captures
+
+[Fixed](screenshots/still-and-alive/fixed.jpg) · [Soft Follow](screenshots/still-and-alive/soft-follow.jpg) · [Observatory — Standing forms](screenshots/still-and-alive/observatory-forms.jpg) · [Observatory — Resident paths](screenshots/still-and-alive/observatory-paths.jpg) · [Residents](screenshots/still-and-alive/residents.jpg) · [Atlas](screenshots/still-and-alive/atlas.jpg) · [Sound controls](screenshots/still-and-alive/sound-controls.jpg)
+
+### Production bundle and cameras
+
+A clean `npm ci`, all 56 automated tests, the Vite production build, and `node scripts/check-dist.mjs` passed. The app also booted with its production assets served at the GitHub Pages project subpath. No deployment workflow changes were required.
+
+Chromium 156 on Linux used ANGLE/SwiftShader for WebGL 2. The browser rendered the fixed camera while the resident clock continued to step. A rendered rig check verified an unchanged position, direction, and FOV in the dead zone, a measured reduced-motion speed limit of 0.47 world units per second, a fixed direction when the subject reversed, restoration after Compose, and a return to Fixed when the subject was removed. The desktop pass also exercised static Observatory cuts, the five rendered thumbnails, Atlas and Locate, Inspect and Action, object placement, Undo/Redo, and both photo modes. A separate 390 px touch pass exercised resident selection, Locate, Atlas, and the UI-hidden view.
+
+Chromium's OfflineAudioContext passed all ten renders at 44.1 and 48 kHz. Both World renders included five residents. Their absolute peaks were 0.09830 and 0.09825, with RMS 0.00708. Across all renders the highest peak was 0.23025, and the checks found no non-finite output or DC offset above the defined threshold.
+
+### Continuous watching
+
+A ten-minute browser session ran with the integrated Fixed camera and World Audio before the final small-gesture pass. At 576 × 434, it completed 41,693 indexed draws and detected audible signal in 1,723 audio buffers. Each minute showed new draws and audio signal. The session ended in Fixed with zero context losses or console errors, finite audio samples, and a measured peak of 0.0597. This is an end-to-end observation test with software rendering. GPU memory use was not profiled.
+
+### Device and release notes
+
+Chromium software WebGL and browser audio graph capture establish the tested rendering and output paths. Physical-GPU performance, Safari and Edge on their target devices, device output levels, and motion comfort for individual viewers need device testing. The release build for B4.1.1 is prepared for review. The published site still runs the existing main build.

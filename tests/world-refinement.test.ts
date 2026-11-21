@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Mesh, Raycaster, Scene, Vector3 } from 'three';
-import { boundLandscapePan, followFrame, keptAboveLand, landscapeFrame, wanderFrame } from '../src/reborn/camera';
-import { gardenReferences } from '../src/reborn/genome';
+import { boundLandscapePan, keptAboveLand, landscapeFrame } from '../src/reborn/camera';
 import { buildLandscape } from '../src/reborn/landscape';
-import { canTraverse, GardenMotion } from '../src/reborn/motion';
+import { canTraverse } from '../src/reborn/motion';
 import { defaultImage, imageFrame } from '../src/reborn/photo';
 import { defaultLand, makeTerrain, terrainKinds, worldBounds } from '../src/reborn/terrain';
 
@@ -81,26 +80,13 @@ describe('World Refinement', () => {
     expect(canTraverse(terrain, 'VESSEL', .7, obstacle, 4.1, 0, 4.2, 0)).toBe(true);
   });
 
-  it('frames terrain and follows subject heading while keeping the lens clear', () => {
+  it('frames terrain in portrait and landscape while keeping the lens clear', () => {
     const terrain = makeTerrain({ ...defaultLand, kind: 'Terraces', elevation: 1 });
     const position = new Vector3(), target = new Vector3();
     landscapeFrame(terrain, false, position, target);
     const horizontal = position.clone();
     landscapeFrame(terrain, true, position, target);
     expect(position.distanceTo(horizontal)).toBeGreaterThan(1);
-    const poses = new Set<string>();
-    for (let time = 0; time < 320; time += 2) {
-      wanderFrame(time, terrain, position, target);
-      expect(keptAboveLand(position, terrain, target)).toBeGreaterThanOrEqual(terrain.height(position.x, position.z) + 1.75);
-      poses.add(position.toArray().join());
-    }
-    expect(poses.size).toBe(160);
-    const specimen = new GardenMotion(gardenReferences[0].genome, [0, 0]);
-    followFrame(specimen.pose, 0, terrain, position, target);
-    expect(position.x).toBeLessThan(0);
-    expect(target.x).toBeGreaterThan(0);
-    followFrame(specimen.pose, Math.PI, terrain, position, target);
-    expect(position.x).toBeGreaterThan(0);
     const landmark = terrain.landmarks[0];
     position.set(landmark.x, 0, landmark.z);
     expect(keptAboveLand(position, terrain)).toBeGreaterThan(terrain.height(landmark.x, landmark.z) + landmark.scale * 3);

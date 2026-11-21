@@ -89,9 +89,9 @@ const hinge: Builder = (root, g, m) => {
   const toe = new T.Vector3();
   return (p, ground) => {
     const gait = Math.min(1, p.speed * 1.45);
-    const fold = p.preparation * .61 + (p.gesture === 'Fold' ? p.action : 0) * .83;
+    const fold = p.relax * .34 + p.preparation * .61 + (p.gesture === 'Fold' ? p.action : 0) * .83;
     const stumble = p.gesture === 'Stumble' ? p.action * .48 - p.recovery * .27 : 0;
-    lever.rotation.z = -.35 + fold + .19 * Math.sin(p.stride) * gait - stumble;
+    lever.rotation.z = -.35 + fold + .27 * p.greet + .19 * Math.sin(p.stride) * gait - stumble;
     frame.position.y = (p.gesture === 'Hop' ? p.action ** 1.75 * .63 : 0) - .085 * fold + Math.abs(Math.sin(p.stride)) * gait * .07;
     frame.rotation.z = .085 * Math.sin(p.stride) * gait - fold * .14 + stumble + p.recovery * Math.sin(p.time * 16) * .055;
     swing.forEach((joint, index) => {
@@ -167,11 +167,11 @@ const vessel: Builder = (root, g, m) => {
   }
   let drift = 0, previous = 0;
   return p => {
-    const swell = Math.sin(p.time * (1.5 + g.gait)) * .048;
+    const swell = Math.sin(p.time * (1.5 + g.gait)) * .048 * (1 - p.relax * .63);
     const squeeze = p.gesture === 'Contract' ? p.action * .21 : .03 * p.action;
     const pulse = p.gesture === 'Pulse' ? p.action * .093 * Math.sin(p.time * 15) : 0;
-    pod.position.y = 1.17 + swell + .13 * Math.sin(p.time * .57) * Math.min(1, p.speed * 1.4) - squeeze * .68 - p.preparation * .10;
-    const inclination = .13 * Math.sin(p.time * 1.14) + (p.gesture === 'Tilt' ? p.action * .47 : 0) - p.recovery * .12;
+    pod.position.y = 1.17 + swell + .13 * Math.sin(p.time * .57) * Math.min(1, p.speed * 1.4) - squeeze * .68 - p.preparation * .10 - p.relax * .23 + p.greet * .084;
+    const inclination = .13 * Math.sin(p.time * 1.14) + (p.gesture === 'Tilt' ? p.action * .47 : 0) - p.recovery * .12 + p.greet * .24 - p.relax * .11;
     pod.rotation.z = inclination;
     envelope.scale.set(1 + swell + pulse - squeeze, 1 - swell + pulse + squeeze * .32, 1 + swell + pulse - squeeze);
     drift += (inclination - drift) * (1 - Math.exp(-(p.time - previous) * 3.9));
@@ -207,7 +207,7 @@ const relay: Builder = (root, g, m) => {
   const axis = v(0, 1, 0), boundary = v(0, 0, 0);
   return (p, ground) => {
     const cos = Math.cos(p.yaw), sin = Math.sin(p.yaw);
-    const coil = (p.gesture === 'Coil' ? p.action : 0) * .68 + p.preparation * .38;
+    const coil = (p.gesture === 'Coil' ? p.action : 0) * .68 + p.preparation * .38 + p.relax * .47 + p.greet * .14;
     const stretch = p.gesture === 'Stretch' ? p.action * .46 : 0;
     const ripple = p.gesture === 'Ripple' ? p.action * .52 : 0;
     const step = spacing * (1 - p.compression * .24);

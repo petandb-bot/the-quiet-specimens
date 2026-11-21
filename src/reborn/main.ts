@@ -1,5 +1,6 @@
+import { ResidentBrowser } from './observation/residents';
 import { WorldComposer } from './composer/editor';
-import { ChamberSound } from '../audio/scheduler';
+import { GardenSound } from './sound/garden-sound';
 import type { Action } from '../core/model';
 import { fromGardenSeed, gardenReferences, newGardenSpecimen } from './genome';
 import type { GardenSpecimen } from './genome';
@@ -30,10 +31,11 @@ element('app').innerHTML = `
         <a class="utility legacy" href="./legacy/">Legacy</a>
         <button class="utility compose-toggle" type="button" id="compose-settings" aria-controls="compose-panel" aria-expanded="false">Compose</button>
         <button class="utility" type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">World</button>
-        <button class="utility" type="button" id="life-settings" aria-controls="controls" aria-expanded="false">Life</button>
+        <button class="utility" type="button" id="life-settings" aria-controls="residents-panel" aria-expanded="false">Residents</button>
         <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
         <button class="utility" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
         <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
+        <button class="utility" type="button" id="audio-settings" aria-controls="audio-panel" aria-expanded="false">Audio</button>
         <button class="utility" type="button" id="view">View</button>
       </nav>
     </header>
@@ -70,13 +72,35 @@ element('app').innerHTML = `
       </div>
       <p class="land-note">The image stays in this browser session.</p>
     </section>
+    <section class="land-panel resident-panel" id="residents-panel" aria-label="Resident browser" hidden>
+      <div class="resident-actions"><button id="resident-atlas" type="button">Atlas</button><button id="open-life" type="button">Discover</button></div>
+      <div id="resident-list" class="resident-list"></div>
+      <div class="resident-actions">
+        <button id="resident-locate" type="button">Locate</button><button id="resident-follow" type="button">Soft Follow</button>
+        <button id="resident-inspect" type="button">Inspect</button><button id="resident-audition" type="button">Audition</button>
+      </div>
+      <details id="moment-details"><summary>Recent moments</summary><ul id="moment-list" class="moment-list"></ul></details>
+    </section>
+    <section class="land-panel" id="audio-panel" aria-label="Audio controls" hidden>
+      <label>Mix<select id="audio-mode"><option>World</option><option>Solo</option></select></label>
+      <label>Master volume <output id="master-level">56%</output><input id="master-volume" type="range" min="0" max="100" value="56"></label>
+      <label id="density-control">World density <input id="audio-density" type="range" min="0" max="100" value="62"></label>
+      <p class="land-note" id="audio-state" role="status">Sound is off.</p>
+      <div class="land-buttons"><button id="audio-audition" type="button" aria-pressed="false">Audition</button>
+        <button id="audio-reset" type="button">Audio Reset</button></div>
+    </section>
     <section class="land-panel" id="camera-panel" aria-label="Camera settings" hidden>
-      <label>Camera<select id="camera-mode"><option>Landscape</option><option>Wander</option><option>Follow</option></select></label>
+      <label>Camera<select id="camera-mode"><option>Fixed</option><option>Landscape</option><option>Soft Follow</option><option>Observatory</option><option>Atlas</option></select></label>
       <label>Resident<select id="camera-resident"></select></label>
       <div class="land-buttons"><button id="zoom-out" type="button">Zoom out</button><button id="zoom-in" type="button">Zoom in</button></div>
       <button id="camera-reset" type="button">Reset camera</button>
-      <label class="check-line"><input id="camera-still" type="checkbox"> Reduce camera motion</label>
-      <p class="land-note">Drag to orbit. Right-drag or two-finger drag to pan.</p>
+      <label class="check-line"><input id="camera-still" type="checkbox"> Reduce motion</label>
+      <div id="camera-tour" class="region-fields" hidden>
+        <strong id="camera-station"></strong>
+        <div class="land-buttons"><button id="previous-view" type="button">Previous view</button><button id="next-view" type="button">Next view</button></div>
+        <label class="check-line"><input id="camera-auto" type="checkbox"> Auto-advance every 100 seconds</label>
+      </div>
+      <p class="land-note" id="camera-help"></p>
     </section>
     <button class="utility exit" type="button" id="exit" hidden>Exit view</button>
     <div class="notice" id="notice" role="status" hidden></div>
@@ -135,18 +159,23 @@ const seedInput = element<HTMLInputElement>('seed');
 const media = matchMedia('(prefers-reduced-motion: reduce)');
 let current = gardenReferences[0];
 let mode: GardenMode = 'Observe';
-let enabled = false;
 let audition = false;
-let isPaused = media.matches;
+let isPaused = false;
 let graphics: GardenView | undefined;
 let composer: WorldComposer | undefined;
 let lastReading = '';
 let lastSoundReading = '';
 let noteTimer = 0;
-let eventSerial = 0;
-let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | undefined;
+let panel: 'land' | 'image' | 'camera' | 'life' | 'compose' | 'audio' | 'residents' | undefined;
 const cameraMode = element<HTMLSelectElement>('camera-mode');
 const cameraResident = element<HTMLSelectElement>('camera-resident');
+let browseSeed = '';
+let browserAt = -Infinity;
+const residents = new ResidentBrowser(element('resident-list'), item => graphics?.residentThumbnail(item) ?? '', item => {
+  browseSeed = item.genome.seed;
+  select(item, false);
+  updateResidents();
+});
 
 function notice(message: string) {
   element('notice').textContent = message;
@@ -160,22 +189,28 @@ function graphicsProblem(message: string) {
   element('graphics').textContent = message;
 }
 
-const sound = new ChamberSound((on, testing) => {
-  enabled = on;
+const sound = new GardenSound(({ state, audition: testing, message }) => {
   audition = testing;
+  const on = state === 'running';
   element('sound').setAttribute('aria-pressed', String(on));
-  element('sound').textContent = on ? 'Sound on' : 'Sound off';
-  element('audition').setAttribute('aria-pressed', String(testing));
-  element('audition').textContent = testing ? 'End audition' : 'Audition';
+  element('sound').textContent = on ? 'Sound on' : state === 'starting' ? 'Starting sound…' : state === 'blocked' ? 'Retry sound' : 'Sound off';
+  element('audio-state').textContent = message;
+  for (const id of ['audition', 'audio-audition', 'resident-audition']) {
+    element(id).setAttribute('aria-pressed', String(testing));
+    element(id).textContent = testing ? 'End audition' : 'Audition';
+  }
 });
-sound.setVolume(.52);
 
 function syncMotion() {
-  if (graphics && cameraMode.value !== graphics.camera) cameraMode.value = graphics.camera;
+  if (graphics && cameraMode.value !== graphics.camera) { cameraMode.value = graphics.camera; syncCameraControls(); }
+  if (panel === 'camera' && element('camera-station').textContent !== graphics?.observationStation) {
+    element('camera-station').textContent = graphics?.observationStation ?? '';
+  }
+  if (panel === 'residents' && performance.now() - browserAt >= 330) updateResidents();
   const pose = graphics?.getPose(current.genome.seed);
   const reading = !pose ? 'Outside the garden'
     : isPaused ? 'Motion paused'
-    : pose.social ?? (pose.phase === 'Act' ? pose.gesture : pose.phase === 'Explore' ? pose.intent : pose.phase);
+    : pose.moment ?? pose.social ?? (pose.phase === 'Act' ? pose.gesture : pose.phase === 'Explore' ? pose.intent : pose.phase);
   if (reading !== lastReading) {
     lastReading = reading;
     element('motion-reading').textContent = reading;
@@ -184,11 +219,17 @@ function syncMotion() {
   if (audioReading === lastSoundReading) return;
   lastSoundReading = audioReading;
   const sonotype = { Act: 'DISPLAY', Rest: 'REST', Explore: 'CRUISE', Hesitate: 'HOVER', Recover: 'HOVER' } satisfies Record<MotionPose['phase'], Action>;
-  sound.behavior(pose ? sonotype[pose.phase] : 'REST', ++eventSerial);
+  sound.behavior(pose ? sonotype[pose.phase] : 'REST');
 }
 
 try {
-  graphics = new GardenView(element('canvas'), item => { if (current !== item) select(item, false); }, syncMotion, graphicsProblem);
+  graphics = new GardenView(element('canvas'), item => {
+    browseSeed = item.genome.seed;
+    if (current !== item) select(item, false);
+    if (graphics?.camera === 'Atlas') showPanel('residents');
+  }, syncMotion, graphicsProblem);
+  const view = graphics;
+  sound.setScenery({ presence: id => view.soundPresence(id), points: () => view.soundPoints(), events: () => view.soundEvents() });
   composer = new WorldComposer(element('compose-panel'), graphics, () => current, () => {
     syncMembership();
     syncWorldControls();
@@ -196,7 +237,7 @@ try {
     showPanel(follow ? undefined : 'life');
     select(item, false);
     setMode(follow ? 'Observe' : 'Inspect');
-    if (follow) { graphics?.setCamera('Follow'); syncMotion(); }
+    if (follow) { graphics?.setCamera('Soft Follow'); syncMotion(); }
   });
 } catch (error) {
   graphicsProblem(error instanceof Error ? error.message : 'The garden could not open on this device.');
@@ -225,6 +266,7 @@ function syncMembership() {
   member.disabled = !graphics || (!present && graphics.count >= worldLimit);
   element('occupancy').textContent = graphics ? `${graphics.count} / ${worldLimit} in the world` : '';
   const residents = graphics?.residents ?? [];
+  sound.setResidents(residents.map(specimen => ({ id: specimen.genome.seed, specimen })));
   cameraResident.replaceChildren(...residents.map(item => new Option(item.name, item.genome.seed)));
   cameraResident.value = residents.some(item => item.genome.seed === current.genome.seed)
     ? current.genome.seed : (residents[0]?.genome.seed ?? '');
@@ -275,8 +317,9 @@ const landKind = element<HTMLSelectElement>('land-kind');
 for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
 landKind.value = defaultLand.kind;
 const landSeed = element<HTMLInputElement>('land-seed');
-const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-settings', 'land-panel'], life: ['life-settings', 'controls'],
-  image: ['image-settings', 'image-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
+const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-settings', 'land-panel'],
+  residents: ['life-settings', 'residents-panel'], life: ['open-life', 'controls'],
+  image: ['image-settings', 'image-panel'], audio: ['audio-settings', 'audio-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
 function showPanel(next?: keyof typeof panels) {
   if (next === 'compose') {
     if (!composer) return;
@@ -288,8 +331,10 @@ function showPanel(next?: keyof typeof panels) {
   for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
     const [button, content] = panels[key];
     element(content).hidden = next !== key;
-    element(button).setAttribute('aria-expanded', String(next === key));
+    element(button).setAttribute('aria-expanded', String(next === key || (key === 'residents' && next === 'life')));
   }
+  if (next === 'residents') updateResidents();
+  if (next === 'camera') syncCameraControls();
 }
 for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
   click(panels[key][0], () => showPanel(panel === key ? undefined : key));
@@ -311,21 +356,83 @@ click('land-apply', applyLand);
 click('land-new', () => { landSeed.value = freshSeed(); applyLand(); });
 
 function selectCamera(selected: CameraMode) {
-  if (selected === 'Follow') {
+  if (selected === 'Soft Follow') {
     const resident = graphics?.residents.find(item => item.genome.seed === cameraResident.value);
     if (resident) select(resident, false);
   }
   setMode('Observe');
   graphics?.setCamera(selected);
   syncMotion();
+  syncCameraControls();
 }
+
+function syncCameraControls() {
+  const camera = graphics?.camera ?? 'Fixed';
+  element('camera-tour').hidden = camera !== 'Observatory';
+  element('zoom-in').parentElement!.hidden = camera === 'Atlas';
+  cameraResident.closest('label')!.hidden = camera !== 'Soft Follow';
+  element('camera-help').textContent = {
+    Fixed: 'The frame stays fixed while the residents move.',
+    Landscape: 'Drag to turn. Right-drag or use two fingers to pan.',
+    'Soft Follow': 'The frame drifts only when a resident nears its edge.',
+    Observatory: '',
+    Atlas: 'Tap a resident to select it. The blue square marks your last view.',
+  }[camera];
+  element('camera-help').hidden = camera === 'Observatory';
+}
+
+function updateResidents() {
+  browserAt = performance.now();
+  const items = graphics?.residents ?? [];
+  if (!items.some(item => item.genome.seed === browseSeed)) {
+    browseSeed = items.find(item => item.genome.seed === current.genome.seed)?.genome.seed ?? items[0]?.genome.seed ?? '';
+  }
+  residents.update(items, browseSeed, id => graphics?.residentPose(id));
+  if (!items.length) element('resident-list').textContent = 'There are no residents yet.';
+  if (element<HTMLDetailsElement>('moment-details').open) {
+    const named = (id: string) => items.find(item => item.genome.seed === id)?.name ?? id;
+    const descriptions = (graphics?.recentMoments() ?? []).map(event =>
+      named(event.actor) + ' · ' + event.kind + (event.peer ? ' · ' + named(event.peer) : ''));
+    const list = element('moment-list');
+    if (!descriptions.length) descriptions.push('No recent moments yet.');
+    if (descriptions.join('\n') !== Array.from(list.children, item => item.textContent).join('\n')) {
+      list.replaceChildren(...descriptions.map(description => {
+        const li = document.createElement('li');
+        li.textContent = description;
+        return li;
+      }));
+    }
+  }
+  for (const id of ['resident-locate', 'resident-follow', 'resident-inspect', 'resident-audition']) {
+    element<HTMLButtonElement>(id).disabled = !browseSeed;
+  }
+}
+
+function targetResident(action: 'locate' | 'follow' | 'inspect' | 'audition') {
+  const item = graphics?.residents.find(item => item.genome.seed === browseSeed);
+  if (!item) return;
+  select(item, false);
+  if (action === 'audition') { auditionSelected(); return; }
+  if (action === 'inspect') { setMode('Inspect'); showPanel('life'); return; }
+  setMode('Observe');
+  if (action === 'locate') graphics?.locate(browseSeed);
+  else graphics?.setCamera('Soft Follow', browseSeed);
+  syncMotion();
+}
+
+click('resident-atlas', () => { selectCamera(graphics?.camera === 'Atlas' ? 'Fixed' : 'Atlas'); updateResidents(); });
+for (const action of ['locate', 'follow', 'inspect', 'audition'] as const) click('resident-' + action, () => targetResident(action));
 cameraMode.addEventListener('change', () => selectCamera(cameraMode.value as CameraMode));
-cameraResident.addEventListener('change', () => selectCamera('Follow'));
+cameraResident.addEventListener('change', () => selectCamera('Soft Follow'));
 click('zoom-in', () => graphics?.zoom(1.14));
 click('zoom-out', () => graphics?.zoom(1 / 1.14));
 click('camera-reset', () => { setMode('Observe'); graphics?.resetCamera(); syncMotion(); });
+click('previous-view', () => { graphics?.nextStation(-1); syncMotion(); });
+click('next-view', () => { graphics?.nextStation(1); syncMotion(); });
+element<HTMLInputElement>('camera-auto').addEventListener('change', event => graphics?.setObservationAuto((event.currentTarget as HTMLInputElement).checked));
 const still = element<HTMLInputElement>('camera-still');
-still.checked = media.matches;
+still.checked = true;
+media.addEventListener('change', () => { if (media.matches) { still.checked = true; graphics?.setStillCamera(true); } });
 still.addEventListener('change', () => graphics?.setStillCamera(still.checked));
 graphics?.setStillCamera(still.checked);
 
@@ -395,21 +502,39 @@ click('play-action', () => {
 });
 click('pause', () => pause(!isPaused));
 click('sound', () => {
-  if (enabled) sound.stop();
-  else void sound.start().then(ok => { if (!ok) notice('Audio did not start on this device.'); });
+  void sound.toggle().then(ok => {
+    if (!ok && element('sound').textContent === 'Retry sound') notice('Audio could not start. Try Sound again or use Audio Reset.');
+  });
 });
-click('audition', () => {
+function auditionSelected() {
   if (audition) sound.endAudition();
-  else void sound.audition().then(ok => { if (!ok) notice('Audio did not start on this device.'); });
+  else void sound.audition().then(ok => {
+    if (!ok && element('sound').textContent === 'Retry sound') notice('Audition could not start. Use Audio Reset to try again.');
+  });
+}
+click('audition', auditionSelected);
+click('audio-audition', auditionSelected);
+click('audio-reset', () => { sound.reset(); notice('Audio reset. Press Sound to start.'); });
+const mix = element<HTMLSelectElement>('audio-mode');
+mix.addEventListener('change', () => {
+  sound.setMix(mix.value === 'Solo' ? 'Solo' : 'World');
+  element('density-control').hidden = mix.value === 'Solo';
+});
+element('audio-density').addEventListener('input', () => sound.setDensity(value('audio-density')));
+element('master-volume').addEventListener('input', () => {
+  const level = value('master-volume');
+  element('master-level').textContent = Math.round(level * 100) + '%';
+  sound.setVolume(level);
 });
 
 let panelBeforeView: typeof panel;
 function viewing(show: boolean) {
-  if (show) { panelBeforeView = panel; showPanel(); }
+  if (show) { panelBeforeView = panel; showPanel(); graphics?.clearLocate(); }
   else showPanel(panelBeforeView);
   for (const name of ['identity', 'caption']) element(name).hidden = show;
   element('exit').hidden = !show;
   element(show ? 'exit' : 'view').focus();
+  syncMotion();
 }
 click('view', () => viewing(true));
 click('exit', () => viewing(false));
@@ -418,7 +543,7 @@ document.addEventListener('keydown', event => {
   else if (event.key === 'Escape' && panel) {
     const [button] = panels[panel];
     showPanel();
-    element(button).focus();
+    element(button === 'open-life' ? 'life-settings' : button).focus();
   }
 });
 
