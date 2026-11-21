@@ -21,22 +21,28 @@ function element<T extends HTMLElement = HTMLElement>(id: string) {
 }
 
 element('app').innerHTML = `
-  <a class="skip" href="#world-settings">Skip to controls</a>
+  <a class="skip" href="#more-controls">Skip to controls</a>
   <main class="experience" id="experience">
     <div class="canvas" id="canvas"></div>
     <p class="graphics" id="graphics" role="status" hidden></p>
     <header class="identity" id="identity">
-      <a class="brand" href="./" aria-label="The Quiet Specimens home"><span class="brand-mark" aria-hidden="true"><i></i></span><span>The Quiet<br>Specimens</span></a>
-      <nav aria-label="Artwork controls">
-        <a class="utility legacy" href="./legacy/">Legacy</a>
+      <a class="brand" href="./" aria-label="The Quiet Specimens home" title="The Quiet Specimens — Elsewhere">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <span class="brand-wordmark">The Quiet<br>Specimens</span>
+      </a>
+      <nav class="primary-nav" aria-label="Essential controls">
         <button class="utility compose-toggle" type="button" id="compose-settings" aria-controls="compose-panel" aria-expanded="false">Compose</button>
+        <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
+        <button class="utility" type="button" id="view">View</button>
+        <button class="utility menu-toggle" type="button" id="more-controls" aria-controls="secondary-nav" aria-expanded="false">Menu</button>
+      </nav>
+      <nav class="secondary-nav" id="secondary-nav" aria-label="More controls" hidden>
+        <a class="utility legacy" href="./legacy/">Legacy</a>
         <button class="utility" type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">World</button>
         <button class="utility" type="button" id="life-settings" aria-controls="residents-panel" aria-expanded="false">Residents</button>
         <button class="utility" type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Image</button>
         <button class="utility" type="button" id="camera-settings" aria-controls="camera-panel" aria-expanded="false">Camera</button>
-        <button class="utility" type="button" id="sound" aria-pressed="false">Sound off</button>
         <button class="utility" type="button" id="audio-settings" aria-controls="audio-panel" aria-expanded="false">Audio</button>
-        <button class="utility" type="button" id="view">View</button>
       </nav>
     </header>
     <div class="caption" id="caption">
@@ -313,6 +319,30 @@ function pause(next: boolean) {
 }
 
 const click = (id: string, callback: () => void) => element(id).addEventListener('click', callback);
+
+// Keep the landscape free of persistent navigation chrome.
+// Menu is a disclosure, not a second permanently visible toolbar.
+const menuButton = element<HTMLButtonElement>('more-controls');
+const secondaryNav = element<HTMLElement>('secondary-nav');
+function showMore(open: boolean) {
+  if (!open && secondaryNav.contains(document.activeElement)) menuButton.focus();
+  secondaryNav.hidden = !open;
+  menuButton.setAttribute('aria-expanded', String(open));
+}
+click('more-controls', () => {
+  const open = secondaryNav.hidden;
+  showMore(open);
+  if (open) secondaryNav.querySelector<HTMLElement>('button, a')?.focus();
+});
+secondaryNav.addEventListener('click', event => {
+  if ((event.target as HTMLElement).closest('button, a')) showMore(false);
+});
+document.addEventListener('pointerdown', event => {
+  if (!secondaryNav.hidden && event.target instanceof Node && !element('identity').contains(event.target)) {
+    showMore(false);
+  }
+});
+
 const landKind = element<HTMLSelectElement>('land-kind');
 for (const kind of terrainKinds) landKind.add(new Option(kind, kind));
 landKind.value = defaultLand.kind;
@@ -321,6 +351,7 @@ const panels = { compose: ['compose-settings', 'compose-panel'], land: ['world-s
   residents: ['life-settings', 'residents-panel'], life: ['open-life', 'controls'],
   image: ['image-settings', 'image-panel'], audio: ['audio-settings', 'audio-panel'], camera: ['camera-settings', 'camera-panel'] } as const;
 function showPanel(next?: keyof typeof panels) {
+  showMore(false);
   if (next === 'compose') {
     if (!composer) return;
     if (mode !== 'Observe') setMode('Observe');
@@ -529,6 +560,7 @@ element('master-volume').addEventListener('input', () => {
 
 let panelBeforeView: typeof panel;
 function viewing(show: boolean) {
+  showMore(false);
   if (show) { panelBeforeView = panel; showPanel(); graphics?.clearLocate(); }
   else showPanel(panelBeforeView);
   for (const name of ['identity', 'caption']) element(name).hidden = show;
@@ -540,6 +572,7 @@ click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
+  else if (event.key === 'Escape' && !secondaryNav.hidden) { showMore(false); menuButton.focus(); }
   else if (event.key === 'Escape' && panel) {
     const [button] = panels[panel];
     showPanel();
