@@ -1,10 +1,18 @@
 import { finishes, objectKinds, objectTitle } from '../world/document';
-import { swatches } from './palette';
+import { finishColors } from '../objects/appearance';
+import { objectSizes } from './palette';
+
+function sizeButtons(scope: 'brush' | 'object') {
+  return `<div class="make-size-options" role="group" aria-label="${scope === 'brush' ? 'Placement size' : 'Object size'}">
+    ${Object.entries(objectSizes).map(([label, scale]) =>
+      `<button type="button" data-${scope}-size="${scale}" aria-pressed="false">${label}</button>`).join('')}
+  </div>`;
+}
 
 export const editorMarkup = `
   <aside class="make-help" id="compose-help-panel" aria-label="Make quick start" hidden>
     <div class="make-heading"><strong>Make it yours</strong><button type="button" id="compose-help-close" aria-label="Dismiss help">×</button></div>
-    <ol><li>Choose a shape from the palette.</li><li>Click or tap the ground to place it. Keep going.</li><li>Use Move to drag a shape, or Camera to look around.</li></ol>
+    <ol><li>Choose a shape from the palette.</li><li>Click or tap the ground to place it. Keep going.</li><li>Pick a size before placing, or use Edit last to adjust a placed shape.</li></ol>
     <details><summary>Shortcuts and local draft</summary>
       <p>Space + drag to orbit, right-drag to pan, and scroll to zoom. On touch, use two fingers to pan and pinch to zoom. Esc returns to Select.</p>
       <p>One draft in this browser. Terrain, objects, places, resident settings and a loaded photo are restored. Camera, live activity and Undo history reset when you reload. Clearing site data removes the draft. Reload to pick up a newer draft made in another tab.</p>
@@ -43,9 +51,20 @@ export const editorMarkup = `
            aria-pressed="false"><span class="shape-preview" aria-hidden="true"></span><span>${objectTitle(kind)}</span></button>`).join('')}</div>
       </section>
       <section class="make-brush" id="compose-brush" aria-label="Placement brush" hidden>
-        <button type="button" id="compose-randomize">↻ <span>Randomize</span></button>
-        <details id="compose-brush-advanced"><summary>Seed</summary><label class="visually-hidden" for="compose-seed">Placement seed</label>
-          <input id="compose-seed" maxlength="48" autocomplete="off" spellcheck="false"></details>
+        <div class="make-brush-options">
+          ${sizeButtons('brush')}
+          <label class="make-brush-finish"><span class="visually-hidden">Placement finish</span>
+            <i id="compose-brush-color" aria-hidden="true"></i>
+            <select id="compose-brush-finish">${finishes.map(finish =>
+              `<option value="${finish}">${finish === 'Original' ? 'Seed color' : finish}</option>`).join('')}</select>
+          </label>
+        </div>
+        <div class="make-brush-actions">
+          <button type="button" id="compose-randomize">↻ Randomize</button>
+          <details id="compose-brush-advanced"><summary>Seed</summary><label class="visually-hidden" for="compose-seed">Placement seed</label>
+            <input id="compose-seed" maxlength="48" autocomplete="off" spellcheck="false"></details>
+          <button type="button" id="compose-edit-last" aria-controls="compose-object-edit" hidden>Edit last</button>
+        </div>
       </section>
       ${placeAndResidentMarkup()}
     </div>
@@ -53,11 +72,20 @@ export const editorMarkup = `
   </div>
   <aside id="compose-object-edit" class="make-inspector" aria-label="Selected object" hidden>
     <div class="make-heading"><h2 id="compose-object-name"></h2><button type="button" id="compose-deselect" aria-label="Deselect object">×</button></div>
-    <label>Rotate <output id="compose-angle-value"></output><input type="range" id="compose-angle" min="-180" max="180" step="1"></label>
-    <label>Scale <output id="compose-size-value"></output><input type="range" id="compose-size" min=".25" max="4" step=".01"></label>
-    <div class="make-finish" role="group" aria-label="Color and finish">Finish
-      <div>${finishes.map(finish => `<button type="button" data-finish="${finish}" aria-label="${finish}" title="${finish}" style="--swatch:${swatches[finish]}"></button>`).join('')}</div>
+    <div class="make-inspector-size">
+      <strong>Size</strong>
+      ${sizeButtons('object')}
+      <label>Fine size <output id="compose-size-value"></output><input type="range" id="compose-size" min=".25" max="4" step=".01"></label>
     </div>
+    <label>Rotate <output id="compose-angle-value"></output><input type="range" id="compose-angle" min="-180" max="180" step="1"></label>
+    <div class="make-finish" role="group" aria-label="Color and finish">Finish
+      <div>${finishes.map(finish => {
+        const label = finish === 'Original' ? 'Seed color' : finish;
+        const color = finish === 'Original' ? '#d3c4a4' : finishColors[finish];
+        return `<button type="button" data-finish="${finish}" aria-label="${label}" title="${label}" style="--swatch:${color}"></button>`;
+      }).join('')}</div>
+    </div>
+    <button type="button" id="compose-object-randomize">↻ Randomize look</button>
     <div class="make-inspector-actions"><button type="button" id="compose-object-move">Move</button>
       <button type="button" id="compose-copy">Duplicate</button><button type="button" id="compose-delete">Delete</button></div>
     <details id="compose-object-advanced"><summary>Advanced</summary>

@@ -113,7 +113,18 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 .shape-preview img { display: block; width: 64px; height: 46px; max-width: 100%; object-fit: contain; }
 .shape-fallback .shape-preview::after { content: '◇'; color: #657866; font-size: 1.65rem; }
 .make-shapes .make-shape[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--dock-accent); }
-.make-brush { display: flex; align-items: start; gap: 9px; margin-top: 7px; }
+.make-brush { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 8px; margin-top: 7px; }
+.make-brush-options, .make-brush-actions, .make-size-options { display: flex; align-items: start; gap: 4px; }
+.make-size-options button { flex: 1; }
+.make-inspector-size strong { display: block; font-size: .8rem; margin-bottom: 4px; }
+.make-inspector-size label { margin-top: 5px; }
+.make-brush .make-brush-finish { position: relative; }
+.make-brush .make-brush-finish select { min-height: 29px; margin: 0; padding: 4px 23px 4px 23px; font-size: .77rem; }
+.make-brush-finish i { position: absolute; left: 8px; width: 9px; height: 9px; top: 50%; transform: translateY(-50%); border-radius: 50%; pointer-events: none; }
+#compose-edit-last { color: #264235; background: #e1e9da; }
+#compose-edit-last:hover { color: #fff6e1; background: var(--dock-active); }
+#compose-object-randomize { justify-self: start; }
+.make-brush-actions { flex-wrap: wrap; }
 .make-brush button { min-height: 29px; }
 .make-brush details { max-width: min(280px, 58%); }
 .make-brush details input { width: min(210px, 54vw); margin-top: 3px; font-family: var(--mono); font-size: .78rem; }
@@ -167,6 +178,23 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 .make-palette [data-compose-panel="places"], .make-palette [data-compose-panel="residents"] { max-height: 31svh; overflow: auto; padding: 2px; }
 .make-palette [data-compose-panel="residents"] > label { margin-bottom: 6px; }
 .make-overlay .land-panel { z-index: 4; }
+.settings-heading {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f2ebdb;
+  margin: -14px -14px 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid #b8aa91;
+}
+.settings-heading h2 { margin: 0; font-size: 1rem; }
+.settings-heading h2:focus { outline: none; }
+.land-panel .settings-heading button { width: auto; padding-inline: 11px; font-size: .8rem; font-weight: 650; }
+.settings-heading button span { margin-left: 4px; }
 
 @media (max-width: 625px) {
   .identity { gap: 3px; }
@@ -190,12 +218,17 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
   .make-shapes .make-shape { grid-template-rows: minmax(0, 39px) auto; font-size: .67rem; letter-spacing: -.02em; min-height: 52px; }
   .shape-preview img { height: 39px; }
   .make-brush { margin-top: 4px; }
-  .make-brush button, .make-brush summary { min-height: 44px; align-content: center; }
+  .make-brush-options, .make-brush-actions { width: 100%; }
+  .make-brush-options .make-size-options { flex: 1; }
+  .make-brush-actions { align-items: start; }
+  #compose-edit-last { margin-left: auto; }
+  .make-brush button, .make-brush summary, .make-brush .make-brush-finish select,
+  .make-inspector-size .make-size-options button, #compose-object-randomize { min-height: 44px; align-content: center; }
   .make-status { min-height: 28px; padding: 4px 5px; font-size: .66rem; gap: 6px; }
   #compose-recovery { font-size: .58rem; }
   .make-help, .make-inspector { top: max(58px, calc(env(safe-area-inset-top) + 50px)); padding: 8px 9px; max-height: min(33svh, 300px); }
   .make-help { left: 8px; max-width: min(270px, calc(100vw - 16px)); z-index: 1; }
-  .make-inspector { right: 8px; width: min(240px, calc(100% - 16px)); }
+  .make-inspector { right: 8px; width: min(270px, calc(100% - 16px)); max-height: min(48svh, calc(100svh - 270px)); }
   .composer .make-heading button, .composer .make-finish button, .make-inspector-actions button, .compose-line button { min-height: 44px; }
   .make-overlay .land-panel { top: 58px; bottom: auto; max-height: min(43svh, 440px); }
 }
