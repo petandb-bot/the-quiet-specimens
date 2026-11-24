@@ -1,17 +1,19 @@
-import type { Finish, ObjectKind, WorldDocument, WorldObject } from '../world/document';
+import type { ObjectKind, WorldDocument, WorldObject } from '../world/document';
 import { newObject, objectLimit, transformObject } from '../world/document';
 import type { GroundPoint } from '../motion';
 import { worldBounds } from '../terrain';
 
 export const brushSeed = (kind: ObjectKind) => 'MAKE/' + kind;
 
-export const swatches: Record<Finish, string> = {
-  Original: '#d3c4a4', Chalk: '#e7e2d1', Oxide: '#b26d4b', Mineral: '#748690', Jade: '#698879',
-};
+export const objectSizes = { Small: .65, Medium: 1.2, Large: 2.3 } as const;
+
+export function makeBrush(kind: ObjectKind) {
+  return transformObject(newObject(kind, brushSeed(kind), 'placement-preview'), { scale: objectSizes.Medium });
+}
 
 export function stampObject(document: WorldDocument, brush: WorldObject, point: GroundPoint) {
   if (document.objects.length >= objectLimit || !onLand(point)) return undefined;
-  return transformObject(newObject(brush.kind, brush.seed), { x: point[0], z: point[1] });
+  return transformObject({ ...brush, id: crypto.randomUUID() }, { x: point[0], z: point[1] });
 }
 
 export function onLand(point: GroundPoint) {

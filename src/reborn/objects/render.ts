@@ -1,10 +1,9 @@
 import * as T from 'three';
 import { random } from '../../core/random';
 import type { WorldObject } from '../world/document';
+import { artifactColors } from './appearance';
 
 type Height = (x: number, z: number) => number;
-const palette = ['#ad5b40', '#506e86', '#c1a15c', '#485b51', '#d4c9af'];
-const finishes = { Chalk: '#dfd9c5', Oxide: '#b34b2c', Mineral: '#313646', Jade: '#48716a' };
 
 function mesh(parent: T.Group, geometry: T.BufferGeometry, material: T.Material, x = 0, y = 0, z = 0) {
   const part = new T.Mesh(geometry, material);
@@ -19,11 +18,9 @@ export function makeArtifact(object: WorldObject) {
   const group = new T.Group();
   group.userData.objectId = object.id;
   const rng = random('artifact/1/' + object.seed);
-  const legacy = object.sourceForm !== undefined;
-  const i = object.sourceForm ?? Math.floor(rng.range(0, 20));
-  const colors = [...palette];
-  const identity = object.distant ? 3 : object.kind === 'arch' ? 0 : object.kind === 'ring' ? 1 : i % 4;
-  if (object.finish !== 'Original') colors.splice(0, 4, ...colors.slice(0, 4).map(() => finishes[object.finish as keyof typeof finishes]));
+  const legacy = object.sourceForm !== undefined && object.appearance === undefined;
+  const i = legacy ? object.sourceForm! : Math.floor(rng.range(0, 20));
+  const { colors, identity } = artifactColors(object);
   const materials = colors.map(color => new T.MeshStandardMaterial({
     color, roughness: object.finish === 'Mineral' ? .46 : .72, metalness: object.finish === 'Mineral' ? .34 : 0,
   }));
@@ -34,10 +31,37 @@ export function makeArtifact(object: WorldObject) {
     case 'arch': {
       const w = 1.2 + vary(.21), top = 3 + vary(.38);
       const shape = new T.Shape();
-      shape.moveTo(-w, 0); shape.lineTo(w, 0); shape.lineTo(w, top - .4);
-      shape.lineTo(.5 + vary(.25), top); shape.lineTo(-w, top); shape.closePath();
       const hole = new T.Path();
-      hole.absellipse(vary(.18), 1.75 + vary(.21), .72 + vary(.09), .72 + vary(.15), 0, Math.PI * 2, true);
+      shape.moveTo(-w, 0);
+      shape.lineTo(w, 0);
+      if (object.appearance === 2) {
+        const profile = random('artifact/arch/2/' + object.seed).pick(['vault', 'cut', 'gate'] as const);
+        if (profile === 'vault') {
+          shape.lineTo(w, top * .55);
+          shape.bezierCurveTo(w, top * 1.15, -w, top * 1.15, -w, top * .55);
+          hole.absellipse(0, top * .43, w * .60, top * .28, 0, Math.PI * 2, true);
+        } else if (profile === 'cut') {
+          shape.lineTo(w, top * .73);
+          shape.lineTo(w * .32, top);
+          shape.lineTo(-w, top * .88);
+          hole.absellipse(w * -.10, top * .46, w * .60, top * .20, 0, Math.PI * 2, true, -.27);
+        } else {
+          shape.lineTo(w, top);
+          shape.lineTo(-w, top);
+          hole.moveTo(-w * .52, top * .18);
+          hole.lineTo(-w * .52, top * .62);
+          hole.lineTo(0, top * .79);
+          hole.lineTo(w * .52, top * .62);
+          hole.lineTo(w * .52, top * .18);
+          hole.closePath();
+        }
+      } else {
+        shape.lineTo(w, top - .4);
+        shape.lineTo(.5 + vary(.25), top);
+        shape.lineTo(-w, top);
+        hole.absellipse(vary(.18), 1.75 + vary(.21), .72 + vary(.09), .72 + vary(.15), 0, Math.PI * 2, true);
+      }
+      shape.closePath();
       shape.holes.push(hole);
       mesh(group, new T.ExtrudeGeometry(shape, { depth: .25 + vary(.12), bevelEnabled: true,
         bevelSize: .035, bevelThickness: .025, bevelSegments: 2, curveSegments: 32 }), shell);
@@ -139,7 +163,7 @@ export class LandscapeObjects {
     for (const item of objects) {
       let record = this.active.get(item.id);
       if (record && record.item === item) continue;
-      if (!record || record.item.seed !== item.seed || record.item.kind !== item.kind || record.item.finish !== item.finish || record.item.distant !== item.distant) {
+      if (!record || record.item.seed !== item.seed || record.item.kind !== item.kind || record.item.finish !== item.finish || record.item.appearance !== item.appearance || record.item.distant !== item.distant) {
         record?.dispose();
         record = { ...makeArtifact(item), item };
         this.active.set(item.id, record);
@@ -164,7 +188,7 @@ export class LandscapeObjects {
   hideDraft() { if (this.preview) this.preview.group.visible = false; }
 
   draft(item?: WorldObject) {
-    if (this.preview && (!item || item.seed !== this.preview.item.seed || item.kind !== this.preview.item.kind || item.finish !== this.preview.item.finish)) {
+    if (this.preview && (!item || item.seed !== this.preview.item.seed || item.kind !== this.preview.item.kind || item.finish !== this.preview.item.finish || item.appearance !== this.preview.item.appearance)) {
       this.preview.dispose();
       this.preview = undefined;
     }

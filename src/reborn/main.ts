@@ -53,7 +53,9 @@ element('app').innerHTML = `
       <p class="caption-line" id="subtitle">A world continuing beyond the frame.</p>
     </div>
     <section class="composer" id="compose-panel" aria-label="World Composer" hidden></section>
-    <section class="land-panel" id="land-panel" aria-label="World settings" hidden>
+    <section class="land-panel" id="land-panel" aria-labelledby="land-title" hidden>
+      <div class="settings-heading"><h2 id="land-title" tabindex="-1">Terrain</h2>
+        <button id="land-close" type="button" aria-label="Close terrain settings">Close <span aria-hidden="true">×</span></button></div>
       <label>Terrain<select id="land-kind"></select></label>
       <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
       <label>Roughness<input id="land-rough" type="range" min="0" max="100" value="26"></label>
@@ -65,7 +67,9 @@ element('app').innerHTML = `
       <div class="land-buttons"><button id="land-apply" type="button">Apply land</button><button id="land-new" type="button">New terrain</button></div>
       <p class="land-note">Terrain changes keep your residents.</p>
     </section>
-    <section class="land-panel" id="image-panel" aria-label="Image settings" hidden>
+    <section class="land-panel" id="image-panel" aria-labelledby="image-title" hidden>
+      <div class="settings-heading"><h2 id="image-title" tabindex="-1">Photo</h2>
+        <button id="image-close" type="button" aria-label="Close photo settings">Close <span aria-hidden="true">×</span></button></div>
       <label>Local photo<input id="land-photo" type="file" accept="image/*"></label>
       <div id="photo-controls" class="region-fields" hidden>
         <label>Image mode<select id="image-mode"><option>Backdrop</option><option>Atmosphere</option></select></label>
@@ -365,9 +369,28 @@ function showPanel(next?: keyof typeof panels) {
   if (next === 'residents') updateResidents();
   if (next === 'camera') syncCameraControls();
 }
-for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
-  click(panels[key][0], () => showPanel(panel === key ? undefined : key));
+function closePanel() {
+  if (!panel) return;
+  const [button] = panels[panel];
+  showPanel();
+  element(button === 'open-life' ? 'life-settings' : button === 'audio-settings' ? 'more-controls' : button).focus();
 }
+for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
+  click(panels[key][0], () => {
+    if (panel === key) { closePanel(); return; }
+    showPanel(key);
+    if (key === 'land' || key === 'image') element(key + '-title').focus();
+  });
+}
+click('land-close', closePanel);
+click('image-close', closePanel);
+document.addEventListener('pointerdown', event => {
+  if (!making || (panel !== 'land' && panel !== 'image') || event.target !== graphics?.canvas
+    || !event.isPrimary || event.button !== 0) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  showPanel();
+}, { capture: true });
 function setWorkspace(make: boolean) {
   if (making === make || (make && !composer)) return;
   making = make;
@@ -393,7 +416,6 @@ function applyLand() {
       seed: landSeed.value.trim() || defaultLand.seed, kind: landKind.value as TerrainKind,
       elevation: value('land-height'), roughness: value('land-rough'), openness: value('land-open'), density: value('land-density'),
     });
-    setMode('Observe');
     notice('Landscape regenerated.');
   } catch (error) { notice(error instanceof Error ? error.message : 'Terrain could not be created.'); }
 }
@@ -512,7 +534,6 @@ photoInput.addEventListener('change', () => {
     composer?.setDraftPhoto(file);
     element('photo-controls').hidden = false;
     applyImage();
-    setMode('Observe');
   }).catch(error => notice(error instanceof Error ? error.message : 'Photo could not be loaded.'));
   photoInput.value = '';
 });
@@ -590,15 +611,13 @@ function viewing(show: boolean) {
 click('view', () => viewing(true));
 click('exit', () => viewing(false));
 document.addEventListener('keydown', event => {
-  if (event.defaultPrevented) return;
-  if (event.key === 'Escape' && !element('exit').hidden) viewing(false);
-  else if (event.key === 'Escape' && !secondaryNav.hidden) { showMore(false); menuButton.focus(); }
-  else if (event.key === 'Escape' && panel) {
-    const [button] = panels[panel];
-    showPanel();
-    element(button === 'open-life' ? 'life-settings' : button).focus();
-  }
-});
+  if (event.defaultPrevented || event.key !== 'Escape') return;
+  if (!element('exit').hidden) viewing(false);
+  else if (!secondaryNav.hidden) { showMore(false); menuButton.focus(); }
+  else if (panel) closePanel();
+  else return;
+  event.preventDefault();
+}, { capture: true });
 
 sound.setSpecimen(current);
 syncWorldControls();

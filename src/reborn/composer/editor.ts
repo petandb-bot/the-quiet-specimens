@@ -1,4 +1,4 @@
-import { clamp, freshSeed } from '../../core/random';
+import { clamp } from '../../core/random';
 import { gardenReferences } from '../genome';
 import type { GardenSpecimen } from '../genome';
 import type { GroundPoint } from '../motion';
@@ -6,7 +6,7 @@ import type { ImageSettings } from '../photo';
 import type { LandSettings } from '../terrain';
 import { worldBounds } from '../terrain';
 import type { GardenView } from '../view';
-import { changeLand, createWorld, newObject, objectLimit, objectTitle,
+import { changeLand, createWorld, objectLimit, objectTitle,
   placeCenter, placeLimit, placeRoles, removeObject, transformObject } from '../world/document';
 import type { ObjectKind, Place, PlaceRole, WorldDocument, WorldObject, WorldResident } from '../world/document';
 import { WorldHistory } from '../world/history';
@@ -16,7 +16,8 @@ import type { MakeView } from './camera';
 import { MakeInput } from './input';
 import type { Cursor } from './input';
 import { editorMarkup } from './markup';
-import { brushSeed, onLand, stampObject } from './palette';
+import { brushSeed, makeBrush, onLand, stampObject } from './palette';
+import { primaryColor, rollAppearance } from '../objects/appearance';
 
 type Tab = 'objects' | 'places' | 'residents';
 type Tool = 'select' | 'move' | 'place' | 'camera';
@@ -37,7 +38,7 @@ export class WorldComposer {
   private thumbnailsReady = false;
   private quickStartSeen = false;
   private kind: ObjectKind = 'arch';
-  private brushSeeds = new Map<ObjectKind, string>();
+  private brushes = new Map<ObjectKind, WorldObject>();
   private store?: WorkingDraftStore;
   private photo?: Blob;
   private writes = Promise.resolve();
@@ -142,7 +143,7 @@ export class WorldComposer {
     this.thumbnailsReady = true;
     for (const entry of this.panel.querySelectorAll<HTMLButtonElement>('[data-kind]')) {
       const kind = entry.dataset.kind as ObjectKind;
-      this.paintThumbnail(entry, newObject(kind, brushSeed(kind), kind));
+      this.paintThumbnail(entry, this.getBrush(kind));
     }
     try { this.quickStartSeen = localStorage.getItem('quiet-specimens-make-help') === 'seen'; } catch { /* Help is optional. */ }
   }
@@ -157,10 +158,19 @@ export class WorldComposer {
     entry.querySelector('.shape-preview')?.replaceChildren(image);
   }
 
-  private changeBrushSeed(seed: string) {
-    this.updateBrush(seed);
-    const entry = this.panel.querySelector<HTMLButtonElement>('[data-kind="' + this.kind + '"]');
-    if (entry && this.draft) this.paintThumbnail(entry, this.draft);
+  private getBrush(kind: ObjectKind) {
+    return this.brushes.get(kind) ?? makeBrush(kind);
+  }
+
+  private changeBrush(delta: Parameters<typeof transformObject>[1], redraw = false) {
+    if (!this.draft) return;
+    this.draft = transformObject(this.draft, delta);
+    this.brushes.set(this.kind, this.draft);
+    if (this.cursor) this.hover(this.cursor);
+    if (redraw) {
+      const entry = this.panel.querySelector<HTMLButtonElement>('[data-kind="' + this.kind + '"]');
+      if (entry) this.paintThumbnail(entry, this.draft);
+    }
     this.sync();
   }
 
@@ -202,6 +212,7 @@ export class WorldComposer {
   private click(id: string, callback: () => void) { this.node(id).addEventListener('click', callback); }
   private change(id: string, callback: () => void) { this.node(id).addEventListener('change', callback); }
   private message(message: string) { this.node('compose-message').textContent = message; }
+  private get lastPlaced() { return [...this.document.objects].reverse().find(item => item.layoutIndex === undefined); }
   private get objectItem() { return this.document.objects.find(item => item.id === this.object); }
   private get zone() { return this.document.places.find(item => item.id === this.place); }
   private get chosenResident() { return this.document.residents.find(item => item.specimen.genome.seed === this.resident); }
@@ -253,14 +264,8 @@ export class WorldComposer {
     this.stopPlacement();
     if (tool === 'place') this.tab = 'objects';
     this.tool = tool;
-    if (tool === 'place') this.updateBrush();
+    if (tool === 'place') this.draft = this.getBrush(this.kind);
     this.sync();
-  }
-
-  private updateBrush(seed = this.brushSeeds.get(this.kind) ?? brushSeed(this.kind)) {
-    this.brushSeeds.set(this.kind, seed);
-    this.draft = newObject(this.kind, seed, 'placement-preview');
-    if (this.cursor) this.hover(this.cursor);
   }
 
   private wire() {
@@ -290,8 +295,27 @@ export class WorldComposer {
     }
     this.click('compose-undo', () => this.moveHistory(true));
     this.click('compose-redo', () => this.moveHistory(false));
-    this.click('compose-randomize', () => this.changeBrushSeed(freshSeed()));
-    this.change('compose-seed', () => this.changeBrushSeed(this.field('compose-seed').value.trim() || brushSeed(this.kind)));
+    for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-brush-size]')) {
+      button.addEventListener('click', () => this.changeBrush({ scale: Number(button.dataset.brushSize) }));
+    }
+    for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-object-size]')) {
+      button.addEventListener('click', () => this.updateObject({ scale: Number(button.dataset.objectSize) }));
+    }
+    this.change('compose-brush-finish', () => {
+      this.changeBrush({ finish: this.select('compose-brush-finish').value as WorldObject['finish'] }, true);
+    });
+    this.click('compose-randomize', () => { if (this.draft) this.changeBrush(rollAppearance(this.draft), true); });
+    this.click('compose-object-randomize', () => { if (this.objectItem) this.updateObject(rollAppearance(this.objectItem)); });
+    this.change('compose-seed', () => {
+      this.changeBrush({ seed: this.field('compose-seed').value.trim() || brushSeed(this.kind), finish: 'Original' }, true);
+    });
+    this.click('compose-edit-last', () => {
+      const item = this.lastPlaced;
+      if (!item) return;
+      this.object = item.id;
+      this.setTool('select');
+      this.field('compose-size').focus();
+    });
     this.change('compose-object-seed', () => {
       const seed = this.field('compose-object-seed').value.trim();
       if (seed) this.updateObject({ seed });
@@ -309,7 +333,10 @@ export class WorldComposer {
         const item = this.objectItem;
         if (!item) return;
         const value = this.field(id).valueAsNumber;
-        this.garden.arrangeDrag(transformObject(item, copy(value)));
+        const preview = transformObject(item, copy(value));
+        this.garden.arrangeDrag(preview);
+        this.markers(preview);
+        if (id === 'compose-size') this.syncSizeButtons('object', value);
         this.numberLabel(id, value);
       });
       this.change(id, () => this.updateObject(copy(this.field(id).valueAsNumber)));
@@ -358,7 +385,7 @@ export class WorldComposer {
     this.click('compose-life-follow', () => this.onInspect(this.specimen, true));
     this.click('compose-life-remove', () => this.toggleResident(this.specimen));
     document.addEventListener('keydown', event => {
-      if (!this.active || (event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable=true]'))) return;
+      if (event.defaultPrevented || !this.active || (event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable=true]'))) return;
       if (event.key === 'Escape') {
         if (!this.node('compose-help-panel').hidden) this.showHelp(false);
         else if (this.tool !== 'select' || this.pendingPlace || this.residentTool) this.setTool('select');
@@ -493,7 +520,15 @@ export class WorldComposer {
   }
 
   private numberLabel(id: string, value: number) {
-    this.node(id + '-value').textContent = id === 'compose-angle' ? Math.round(value) + '°' : value.toFixed(2);
+    this.node(id + '-value').textContent = id === 'compose-angle' ? Math.round(value) + '°'
+      : id === 'compose-size' ? Math.round(value * 100) + '%' : value.toFixed(2);
+  }
+
+  private syncSizeButtons(scope: 'brush' | 'object', size: number) {
+    const key = scope === 'brush' ? 'brushSize' : 'objectSize';
+    for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-' + scope + '-size]')) {
+      button.setAttribute('aria-pressed', String(Math.abs(Number(button.dataset[key]) - size) < .001));
+    }
   }
 
   private sync() {
@@ -518,12 +553,21 @@ export class WorldComposer {
     const object = this.objectItem, zone = this.zone;
     const label = (item: WorldObject, index: number): [string, string] => [item.id, objectTitle(item.kind) + ' ' + (index + 1)];
     this.options('compose-zones', [['', 'Choose or click a place'], ...places.map(place => [place.id, place.name] as [string, string])], zone?.id ?? '');
-    if (this.draft) this.field('compose-seed').value = this.draft.seed;
+    this.node('compose-edit-last').hidden = !this.lastPlaced;
+    if (this.draft && this.tool === 'place') {
+      this.field('compose-seed').value = this.draft.seed;
+      this.optionsValue('compose-brush-finish', this.draft.finish);
+      this.node('compose-brush-color').style.backgroundColor = primaryColor(this.draft);
+      this.syncSizeButtons('brush', this.draft.scale);
+    }
     const showObject = Boolean(object && this.tab === 'objects' && (this.tool === 'select' || this.tool === 'move'));
     this.node('compose-object-edit').hidden = !showObject;
     if (object && showObject) {
       this.node('compose-object-name').textContent = objectTitle(object.kind);
       this.field('compose-object-seed').value = object.seed;
+      this.syncSizeButtons('object', object.scale);
+      this.panel.querySelector<HTMLButtonElement>('[data-finish="Original"]')?.style.setProperty('--swatch',
+        primaryColor({ ...object, finish: 'Original' }));
       for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-finish]')) {
         button.setAttribute('aria-pressed', String(button.dataset.finish === object.finish));
       }
@@ -556,7 +600,7 @@ export class WorldComposer {
       : this.tool === 'place' ? (objects.length >= objectLimit ? 'Object limit reached. Delete or undo to make room.' : 'Click or tap the ground to place ' + objectTitle(this.kind) + '.')
       : this.tab === 'places' ? 'Create a region, link a shape, or use Move to adjust a region.'
       : this.tab === 'residents' ? 'Place a resident or mark its home and preferred area.'
-      : this.tool === 'move' ? 'Drag a shape to move it.' : 'Choose a shape to place, or select one on the ground.');
+      : this.tool === 'move' ? 'Drag a shape to move it.' : 'Pick a shape to place, or tap a placed object to edit its size and finish.');
   }
 
   private markers(moving?: WorldObject, movedPlace?: Place) {

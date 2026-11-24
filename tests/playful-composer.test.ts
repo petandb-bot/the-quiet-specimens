@@ -1,10 +1,13 @@
 import { expect, it } from 'vitest';
 import { MakeCamera } from '../src/reborn/composer/camera';
-import { brushSeed, stampObject } from '../src/reborn/composer/palette';
+import { brushSeed, makeBrush, objectSizes, stampObject } from '../src/reborn/composer/palette';
 import { defaultLand, makeTerrain } from '../src/reborn/terrain';
-import { createWorld, newObject, objectLimit } from '../src/reborn/world/document';
+import { createWorld, newObject, objectLimit, transformObject } from '../src/reborn/world/document';
 import { WorldHistory } from '../src/reborn/world/history';
 import { isWorkingDraft } from '../src/reborn/world/recovery';
+import { primaryColor, rollAppearance } from '../src/reborn/objects/appearance';
+import { makeArtifact } from '../src/reborn/objects/render';
+import { Mesh } from 'three';
 
 const terrain = makeTerrain(defaultLand);
 
@@ -50,4 +53,40 @@ it('keeps perspective and plan framing independent and bounds plan navigation', 
   expect(camera.perspective.position.equals(original)).toBe(false);
   expect(camera.plan.position.toArray()).toEqual([-30, 78, -30]);
   expect(camera.perspective.zoom).toBe(1);
+});
+
+it('places the chosen size and finish with a matching collision footprint', () => {
+  const world = createWorld(terrain);
+  const original = makeBrush('arch');
+  const brush = transformObject(original, { scale: objectSizes.Large, finish: 'Jade' });
+  const stamp = stampObject(world, brush, [4, -6])!;
+  expect(stamp).toMatchObject({ x: 4, z: -6, scale: objectSizes.Large, finish: 'Jade', appearance: 2 });
+  expect(stamp.radius / original.radius).toBeCloseTo(objectSizes.Large / objectSizes.Medium);
+});
+
+it('keeps old Arch colors and gives repeated seeded rolls distinct, reproducible looks', () => {
+  const historical = { ...makeBrush('arch'), appearance: undefined };
+  expect(primaryColor(historical)).toBe('#ad5b40');
+  expect(primaryColor({ ...historical, seed: 'OLD-ARCH' })).toBe('#ad5b40');
+  let arch = transformObject(historical, { x: 8, z: -9, scale: objectSizes.Small, finish: 'Chalk' });
+  const palette = new Set<string>();
+  const contours = new Set<string>();
+  for (let i = 0; i < 18; i++) {
+    const roll = rollAppearance(arch, 'TEST-' + i);
+    expect(roll).toEqual(rollAppearance(arch, 'TEST-' + i));
+    const variant = transformObject(arch, roll);
+    expect(primaryColor(variant)).not.toBe(primaryColor(arch));
+    expect(variant).toMatchObject({ x: 8, z: -9, scale: objectSizes.Small, radius: arch.radius, appearance: 2 });
+    const artifact = makeArtifact(variant);
+    const mesh = artifact.group.children[0] as Mesh;
+    const positions = mesh.geometry.attributes.position.array;
+    expect(positions.length).toBeGreaterThan(0);
+    expect(positions.every(Number.isFinite)).toBe(true);
+    contours.add(String(positions.length));
+    palette.add(primaryColor(variant));
+    artifact.dispose();
+    arch = variant;
+  }
+  expect(palette.size).toBeGreaterThanOrEqual(4);
+  expect(contours.size).toBeGreaterThanOrEqual(3);
 });

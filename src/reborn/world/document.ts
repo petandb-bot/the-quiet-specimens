@@ -22,6 +22,7 @@ export interface WorldObject extends Omit<Landmark, 'kind'> {
   finish: Finish;
   layoutIndex?: number;
   sourceForm?: number;
+  appearance?: 2;
   edited?: true;
 }
 export interface Place {
@@ -82,12 +83,12 @@ export function newObject(kind: ObjectKind, seed: string, id: string = crypto.ra
   const rng = random('place-object/1/' + seed);
   const scale = rng.range(.85, 1.65);
   return { id, kind, seed, x: 0, z: 0, yaw: rng.range(-.45, .45), scale, height: 0, distant: false,
-    radius: scale * footprint(kind), finish: 'Original' };
+    radius: scale * footprint(kind), finish: 'Original', appearance: 2 };
 }
 
 const footprint = (kind: ObjectKind) => ({ arch: 1.4, monolith: 1.27, ring: 1.32, stones: 1.67, flora: .95, kinetic: 1.28 })[kind];
 
-export function transformObject(item: WorldObject, delta: Partial<Pick<WorldObject, 'x' | 'z' | 'yaw' | 'scale' | 'height' | 'finish' | 'seed'>>): WorldObject {
+export function transformObject(item: WorldObject, delta: Partial<Pick<WorldObject, 'x' | 'z' | 'yaw' | 'scale' | 'height' | 'finish' | 'seed' | 'appearance'>>): WorldObject {
   const next = { ...item, ...delta, edited: true as const };
   const limit = item.distant ? 112 : worldBounds.x;
   next.x = clamp(Number.isFinite(next.x) ? next.x : item.x, -limit, limit);
@@ -96,7 +97,7 @@ export function transformObject(item: WorldObject, delta: Partial<Pick<WorldObje
   next.scale = clamp(Number.isFinite(next.scale) ? next.scale : item.scale, .25, 4);
   next.height = clamp(Number.isFinite(next.height) ? next.height : item.height, 0, 9);
   next.yaw = Number.isFinite(next.yaw) ? Math.atan2(Math.sin(next.yaw), Math.cos(next.yaw)) : item.yaw;
-  next.radius = item.radius * next.scale / item.scale;
+  if (next.scale !== item.scale) next.radius = item.radius * (next.scale / item.scale);
   return next;
 }
 

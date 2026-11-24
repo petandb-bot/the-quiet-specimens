@@ -36,6 +36,7 @@ export function isWorldDocument(value: unknown): value is WorldDocument {
       || !within(item.scale, .25, 4.1) || !within(item.height, 0, 9) || !within(item.radius, .15, 9) || !within(item.yaw, -Math.PI, Math.PI)
       || (item.layoutIndex !== undefined && !within(item.layoutIndex, 0, 12))
       || (item.sourceForm !== undefined && !within(item.sourceForm, 0, 12))
+      || (item.appearance !== undefined && item.appearance !== 2)
       || (item.edited !== undefined && item.edited !== true)) return false;
     ids.add(item.id);
   }
