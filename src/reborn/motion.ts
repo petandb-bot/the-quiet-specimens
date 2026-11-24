@@ -158,12 +158,16 @@ export class GardenMotion {
   updateHabitat(home?: GroundPoint, preferred?: GroundPoint, start?: GroundPoint) {
     if (home) this.home = home;
     this.territory?.setHabitat(home, preferred);
-    if (start) {
-      this.pose.x = start[0]; this.pose.z = start[1];
-      this.vx = 0; this.vz = 0;
-      this.endResponse();
-    }
-    if (start || this.pose.phase === 'Explore') this.journey();
+    if (start) this.reposition(start);
+    else if (this.pose.phase === 'Explore') this.journey();
+  }
+
+  reposition(point: GroundPoint) {
+    [this.pose.x, this.pose.z] = point;
+    this.vx = 0;
+    this.vz = 0;
+    this.endResponse();
+    this.journey();
   }
 
   private walkable([x, z]: GroundPoint) {

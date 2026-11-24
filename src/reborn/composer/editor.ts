@@ -4,9 +4,9 @@ import type { GardenSpecimen } from '../genome';
 import type { GroundPoint } from '../motion';
 import type { ImageSettings } from '../photo';
 import type { LandSettings } from '../terrain';
-import { worldBounds } from '../terrain';
+import { normalizeLand, worldBounds } from '../terrain';
 import type { GardenView } from '../view';
-import { changeLand, createWorld, objectLimit, objectTitle,
+import { createWorld, objectLimit, objectTitle,
   placeCenter, placeLimit, placeRoles, removeObject, transformObject } from '../world/document';
 import type { ObjectKind, Place, PlaceRole, WorldDocument, WorldObject, WorldResident } from '../world/document';
 import { WorldHistory } from '../world/history';
@@ -18,8 +18,13 @@ import type { Cursor } from './input';
 import { editorMarkup } from './markup';
 import { brushSeed, makeBrush, onLand, stampObject } from './palette';
 import { primaryColor, rollAppearance } from '../objects/appearance';
+import { environmentOf } from '../environment/generator';
+import type { Environment } from '../environment/settings';
+import { GeneratorPanel } from './generator-panel';
+import { positionContext } from './context-menu';
+import type { MakeActivity } from './activity';
 
-type Tab = 'objects' | 'places' | 'residents';
+type Tab = 'objects' | 'places' | 'residents' | 'generate';
 type Tool = 'select' | 'move' | 'place' | 'camera';
 type ResidentTool = 'place' | 'relocate' | 'home' | 'preferred';
 type Drag = { point: GroundPoint; object?: WorldObject; place?: Place };
@@ -35,6 +40,10 @@ export class WorldComposer {
   private view: MakeView = 'Perspective';
   private tool: Tool = 'select';
   private readonly input: MakeInput;
+  private readonly generator: GeneratorPanel;
+  private readonly inspector: HTMLElement;
+  private readonly dock: HTMLElement;
+  private folded = false;
   private thumbnailsReady = false;
   private quickStartSeen = false;
   private kind: ObjectKind = 'arch';
@@ -64,15 +73,29 @@ export class WorldComposer {
     this.history = new WorldHistory(createWorld(garden.terrain, residents));
     this.garden.applyWorld(this.document);
     this.panel.innerHTML = editorMarkup;
+    this.inspector = this.node('compose-object-edit');
+    this.dock = this.panel.querySelector<HTMLElement>('.make-dock')!;
+    this.generator = new GeneratorPanel(this.panel, () => this.document, next => {
+      this.input.reset();
+      this.commit(next);
+    });
     this.input = new MakeInput(garden.canvas, {
       active: () => this.active, camera: () => this.tool === 'camera',
       begin: point => this.startEdit(point), hover: point => this.hover(point),
       drag: point => this.dragEdit(point), end: (point, moved) => this.endEdit(point, moved),
-      cancel: () => this.cancelEdit(), navigate: (action, x, y) => garden.navigateMake(action, x, y),
+      cancel: () => this.cancelEdit(), navigate: (action, x, y) => {
+        garden.navigateMake(action, x, y);
+        this.positionInspector();
+      },
     });
     for (const name of ['compose-new-role', 'compose-zone-role']) this.options(name, placeRoles.map(role => [role, role]));
     this.optionsValue('compose-new-role', 'Curiosity');
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.optionsValue('compose-activity', 'Paused');
+      this.garden.setMakeActivity('Paused');
+    }
     this.wire();
+    window.addEventListener('resize', () => this.positionInspector());
     this.sync();
   }
 
@@ -183,7 +206,17 @@ export class WorldComposer {
     }
   }
 
-  setLand(land: LandSettings) { this.commit(changeLand(this.document, land)); }
+  setLand(land: LandSettings) {
+    const environment = environmentOf(this.document);
+    const terrain = { ...environment.layers.terrain, seed: land.seed };
+    this.commit({ ...this.document, land: normalizeLand(land),
+      environment: { ...environment, layers: { ...environment.layers, terrain } } });
+  }
+
+  setAppearance<K extends 'surface' | 'atmosphere' | 'lighting'>(key: K, settings: Environment[K]) {
+    const environment = environmentOf(this.document);
+    this.commit({ ...this.document, environment: { ...environment, [key]: settings } });
+  }
   setImage(image: ImageSettings) {
     if (Object.keys(image).some(key => image[key as keyof ImageSettings] !== this.document.image[key as keyof ImageSettings])) {
       this.commit({ ...this.document, image });
@@ -268,10 +301,32 @@ export class WorldComposer {
     this.sync();
   }
 
+  private positionInspector() {
+    if (!this.active || this.inspector.hidden) return;
+    const item = this.objectItem;
+    positionContext(this.inspector, this.dock, item && this.garden.arrangeScreenPoint(item));
+  }
+
   private wire() {
+    this.click('compose-fold', () => {
+      this.folded = !this.folded;
+      this.dock.classList.toggle('tools-folded', this.folded);
+      const button = this.node('compose-fold');
+      button.textContent = this.folded ? 'Show tools' : 'Hide tools';
+      button.setAttribute('aria-expanded', String(!this.folded));
+      this.positionInspector();
+    });
+    this.click('compose-done', () => { this.setTool('select'); this.panel.querySelector<HTMLButtonElement>('[data-tool="select"]')?.focus(); });
+    this.change('compose-activity', () => this.garden.setMakeActivity(this.select('compose-activity').value as MakeActivity));
+    for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-life-tab]')) {
+      button.addEventListener('click', () => {
+        this.tab = button.dataset.lifeTab as Tab;
+        this.setTool('select');
+      });
+    }
     this.click('compose-help', () => this.showHelp(this.node('compose-help-panel').hidden));
     this.click('compose-help-close', () => { this.showHelp(false); this.node('compose-help').focus(); });
-    this.click('compose-reset', () => { this.cancelEdit(); this.garden.resetMakeCamera(); });
+    this.click('compose-reset', () => { this.cancelEdit(); this.garden.resetMakeCamera(); this.positionInspector(); });
     this.change('compose-view', () => {
       this.input.reset();
       this.view = this.select('compose-view').value as MakeView;
@@ -305,7 +360,11 @@ export class WorldComposer {
       this.changeBrush({ finish: this.select('compose-brush-finish').value as WorldObject['finish'] }, true);
     });
     this.click('compose-randomize', () => { if (this.draft) this.changeBrush(rollAppearance(this.draft), true); });
-    this.click('compose-object-randomize', () => { if (this.objectItem) this.updateObject(rollAppearance(this.objectItem)); });
+    this.click('compose-object-randomize', () => {
+      const object = this.objectItem;
+      if (object) this.updateObject({ ...rollAppearance(object), finish: object.finish });
+    });
+    this.click('compose-rotate', () => { if (this.objectItem) this.updateObject({ yaw: this.objectItem.yaw + Math.PI / 4 }); });
     this.change('compose-seed', () => {
       this.changeBrush({ seed: this.field('compose-seed').value.trim() || brushSeed(this.kind), finish: 'Original' }, true);
     });
@@ -402,7 +461,7 @@ export class WorldComposer {
     this.cursor = point;
     if (this.tool === 'place') { this.hover(point); return; }
     if (this.pendingPlace || this.residentTool) return;
-    if (this.tool !== 'move' || this.tab === 'residents') return;
+    if (this.tab !== 'objects' && this.tab !== 'places') return;
     const { ground, object } = this.garden.arrangeHit(point.x, point.y, true);
     if (this.tab === 'objects') {
       this.object = object;
@@ -542,13 +601,18 @@ export class WorldComposer {
     for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-kind]')) {
       button.setAttribute('aria-pressed', String(this.tool === 'place' && button.dataset.kind === this.kind));
     }
-    for (const tab of this.panel.querySelectorAll<HTMLButtonElement>('[data-compose-tab]')) tab.setAttribute('aria-pressed', String(tab.dataset.composeTab === this.tab));
+    for (const tab of this.panel.querySelectorAll<HTMLButtonElement>('[data-compose-tab]')) tab.setAttribute('aria-pressed', String(tab.dataset.composeTab === this.tab || tab.dataset.composeTab === 'residents' && this.tab === 'places'));
     for (const panel of this.panel.querySelectorAll<HTMLElement>('[data-compose-panel]')) panel.hidden = panel.dataset.composePanel !== this.tab;
     this.node('compose-brush').hidden = this.tool !== 'place';
     this.node('compose-object-count').hidden = this.tab !== 'objects';
     this.node<HTMLButtonElement>('compose-copy').disabled = objects.length >= objectLimit;
     this.node<HTMLButtonElement>('compose-zone-add').disabled = places.length >= placeLimit;
     this.node('compose-object-count').textContent = objects.length + ' / ' + objectLimit;
+    this.generator.sync();
+    this.node('compose-life-nav').hidden = this.tab !== 'residents' && this.tab !== 'places';
+    for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-life-tab]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.lifeTab === this.tab));
+    }
     this.node('compose-place-count').textContent = places.length + ' / ' + placeLimit;
     const object = this.objectItem, zone = this.zone;
     const label = (item: WorldObject, index: number): [string, string] => [item.id, objectTitle(item.kind) + ' ' + (index + 1)];
@@ -595,12 +659,14 @@ export class WorldComposer {
     this.node<HTMLButtonElement>('compose-life-follow').disabled = !this.chosenResident;
     this.node<HTMLButtonElement>('compose-life-remove').disabled = !this.chosenResident;
     this.markers();
+    this.positionInspector();
     if (!this.active || this.pendingPlace || this.residentTool) return;
     this.message(this.tool === 'camera' ? 'Drag to look around. Scroll or pinch to zoom.'
       : this.tool === 'place' ? (objects.length >= objectLimit ? 'Object limit reached. Delete or undo to make room.' : 'Click or tap the ground to place ' + objectTitle(this.kind) + '.')
-      : this.tab === 'places' ? 'Create a region, link a shape, or use Move to adjust a region.'
+      : this.tab === 'generate' ? ''
+      : this.tab === 'places' ? 'Create, link, or drag a place.'
       : this.tab === 'residents' ? 'Place a resident or mark its home and preferred area.'
-      : this.tool === 'move' ? 'Drag a shape to move it.' : 'Pick a shape to place, or tap a placed object to edit its size and finish.');
+      : this.tool === 'move' ? 'Drag a shape to move it.' : 'Pick a shape to place, or tap or drag an object.');
   }
 
   private markers(moving?: WorldObject, movedPlace?: Place) {

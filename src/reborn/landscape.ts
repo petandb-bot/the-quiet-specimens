@@ -3,27 +3,35 @@ import { makeTerrain, landExtent, gridSpacing } from './terrain';
 import type { LandSettings } from './terrain';
 import { LandscapeObjects } from './objects/render';
 import { landmarksFor } from './world/document';
+import type { WorldObject } from './world/document';
+import { defaultSurface } from './environment/settings';
+import type { Surface } from './environment/settings';
 
-const colorLow = new T.Color('#899377'), colorHigh = new T.Color('#d6c6a6');
-const basin = new T.Color('#a4a58a');
-export function buildLandscape(scene: T.Scene, settings: LandSettings) {
+export function buildLandscape(scene: T.Scene, settings: LandSettings, surface = defaultSurface, layout?: readonly WorldObject[]) {
   const terrain = makeTerrain(settings);
   const root = new T.Group();
   const geometry = new T.PlaneGeometry(landExtent * 2, landExtent * 2, landExtent * 2 / gridSpacing, landExtent * 2 / gridSpacing);
   geometry.rotateX(-Math.PI / 2);
   const pos = geometry.getAttribute('position');
-  const colors = new Float32Array(pos.count * 3);
-  const tone = new T.Color();
-  for(let i=0;i<pos.count;i++){
-    const x=pos.getX(i), z=pos.getZ(i), h=terrain.height(x,z);
-    pos.setY(i,h);
-    const heightTone = Math.max(0, Math.min(1, .50 + h / 12 + .10 * Math.sin(x * .19 + z * .13)));
-    tone.copy(colorLow).lerp(colorHigh, heightTone).lerp(basin, .13 + .10 * Math.sin(z * .46 + x * .11));
-    tone.toArray(colors, i * 3);
-  }
+  for (let i = 0; i < pos.count; i++) pos.setY(i, terrain.height(pos.getX(i), pos.getZ(i)));
   geometry.computeVertexNormals();
-  geometry.setAttribute('color',new T.BufferAttribute(colors,3));
-  const groundMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.94});
+  const colors = new T.BufferAttribute(new Float32Array(pos.count * 3), 3);
+  geometry.setAttribute('color', colors);
+  const groundMat = new T.MeshStandardMaterial({ vertexColors: true });
+  const setSurface = (surface: Surface) => {
+    const low = new T.Color(surface.low), high = new T.Color(surface.high), accent = new T.Color(surface.accent);
+    const tone = new T.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i);
+      const heightTone = Math.max(0, Math.min(1, .50 + h / 12 + .10 * Math.sin(x * .19 + z * .13)));
+      tone.copy(low).lerp(high, heightTone).lerp(accent, .13 + .10 * Math.sin(z * .46 + x * .11));
+      colors.setXYZ(i, tone.r, tone.g, tone.b);
+    }
+    colors.needsUpdate = true;
+    groundMat.roughness = surface.roughness;
+    groundMat.metalness = surface.metalness;
+  };
+  setSurface(surface);
   const backdropBlend = { value: 0 };
   groundMat.onBeforeCompile = shader => {
     shader.uniforms.backdropBlend=backdropBlend;
@@ -39,9 +47,9 @@ export function buildLandscape(scene: T.Scene, settings: LandSettings) {
   groundDepth.visible = false;
   root.add(groundDepth);
   const objects = new LandscapeObjects(root, terrain.height);
-  objects.update(landmarksFor(terrain));
+  objects.update(layout ?? landmarksFor(terrain));
   scene.add(root);
-  return { root, terrain, ground, groundMat, objects, setBackdrop: (amount: number) => {
+  return { root, terrain, ground, groundMat, objects, setSurface, setBackdrop: (amount: number) => {
     backdropBlend.value = amount;
     const transparent = amount > 0;
     if (groundMat.transparent !== transparent) {

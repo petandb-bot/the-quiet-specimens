@@ -1,3 +1,5 @@
+import { activityFrame } from './composer/activity';
+import type { MakeActivity } from './composer/activity';
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -7,10 +9,10 @@ import { PhotoEnvironment, defaultImage } from './photo';
 import type { ImageSettings } from './photo';
 import { inspectionPlinth } from './garden';
 import { buildLandscape } from './landscape';
+import { defaultAtmosphere, defaultLighting, defaultSurface } from './environment/settings';
 import { defaultLand, worldBounds } from './terrain';
-import type { LandSettings } from './terrain';
 import type { GardenSpecimen } from './genome';
-import { GardenMotion, limitFrame, stepSeconds } from './motion';
+import { GardenMotion, stepSeconds } from './motion';
 import type { Gesture, GroundPoint } from './motion';
 import { bodyPlans, buildSpecimen } from './morphology';
 import type { RigGround } from './morphology';
@@ -38,6 +40,7 @@ export class GardenView {
   private arranger: ArrangeScene;
   private arranging?: MakeView;
   private makeCamera = new MakeCamera();
+  private makeActivity: MakeActivity = 'Slow';
   private editCameraReady = false;
   private activeWorld?: WorldDocument;
   private field?: ReturnType<typeof worldField>;
@@ -61,8 +64,6 @@ export class GardenView {
   private worldOrbit: OrbitControls;
   private groundColor = new T.Color('#ffffff');
   private studioBackground = new T.Color('#e7e3d6');
-  private clearSky = new T.Color('#ccd2c6');
-  private sunColor = new T.Color('#fff0ce');
   private skyLamp: T.HemisphereLight;
   private tint = new T.Color('#c6cfc4');
   private sky = new T.Color('#c6cfc4');
@@ -307,16 +308,31 @@ export class GardenView {
     const previous = this.activeWorld;
     const terrainChanged = previous && previous.land !== world.land;
     this.activeWorld = world;
-    if (terrainChanged) this.setLand(world.land);
+    if (terrainChanged) this.setLand(world);
+    else if (previous?.environment?.surface !== world.environment?.surface) {
+      this.garden.setSurface(world.environment?.surface ?? defaultSurface);
+    }
     if (!previous || terrainChanged || previous.objects !== world.objects || previous.places !== world.places) {
       const terrain = this.garden.terrain;
       this.field = worldField(world, terrain);
       terrain.landmarks = [...world.objects];
       terrain.points = this.field.points;
       this.garden.objects.update(world.objects);
-      for (const item of this.beings.values()) item.movement.updateEnvironment(this.field.obstacles, this.field.field);
+      for (const item of this.beings.values()) {
+        item.ground.height = terrain.height;
+        item.movement.updateEnvironment(this.field.obstacles, this.field.field);
+        if (!terrainChanged && previous?.objects === world.objects) continue;
+        const { x, z } = item.movement.pose;
+        const open = safePosition([x, z], item.specimen, terrain, world)
+          ?? terrain.anchors.map(anchor => safePosition(anchor, item.specimen, terrain, world)).find(Boolean);
+        if (open && (open[0] !== x || open[1] !== z)) item.movement.reposition(open);
+        if (terrainChanged || open && (open[0] !== x || open[1] !== z)) {
+          item.terrainY = terrain.height(item.movement.pose.x, item.movement.pose.z);
+          this.pose(item);
+        }
+      }
     }
-    if (!previous || terrainChanged || previous.residents !== world.residents) {
+    if (!previous || previous.residents !== world.residents) {
       const seeds = new Set(world.residents.map(item => item.specimen.genome.seed));
       for (const key of this.beings.keys()) if (!seeds.has(key)) this.remove(key);
       for (const resident of world.residents) {
@@ -324,10 +340,12 @@ export class GardenView {
         const current = this.beings.get(key);
         const last = previous?.residents.find(item => item.specimen.genome.seed === key);
         if (!current) this.add(resident.specimen, resident);
-        else if (terrainChanged || resident !== last) this.updateResident(current, resident, Boolean(terrainChanged || resident.start !== last?.start));
+        else if (resident !== last) this.updateResident(current, resident, resident.start !== last?.start);
       }
     }
-    if (!previous || previous.image !== world.image) this.setImage(world.image);
+    if (!previous || previous.image !== world.image) this.imageSettings = world.image;
+    if (!previous || terrainChanged || previous.image !== world.image || previous.environment?.lighting !== world.environment?.lighting
+      || previous.environment?.atmosphere !== world.environment?.atmosphere) this.applyImage();
   }
 
   private updateResident(item: Resident, arrangement: WorldResident, move: boolean) {
@@ -341,11 +359,21 @@ export class GardenView {
     this.pose(item);
   }
 
+  setMakeActivity(activity: MakeActivity) { this.makeActivity = activity; }
+
+  arrangeScreenPoint(item: WorldObject) {
+    if (!this.arranging) return;
+    const camera = this.makeCamera.get(this.arranging);
+    const rect = this.canvas.getBoundingClientRect();
+    const point = this.subject.set(item.x, this.garden.terrain.height(item.x, item.z) + item.height + item.scale, item.z).project(camera);
+    if (point.z < -1 || point.z > 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1) return;
+    return { x: rect.left + (point.x + 1) * rect.width / 2, y: rect.top + (1 - point.y) * rect.height / 2 };
+  }
+
   setArrange(mode?: MakeView) {
     this.arranging = mode;
     if (mode && !this.editCameraReady) this.resetMakeCamera();
     this.syncOrbit();
-    if (this.mode === 'Observe') this.scene.fog = this.isPlanView ? null : new T.Fog(this.tint, 39, 145);
     this.arrangeMarkers([]);
     if (!mode) {
       this.garden.objects.draft();
@@ -406,9 +434,7 @@ export class GardenView {
     const observe = mode === 'Observe';
     this.site.visible = observe;
     this.scene.background = observe ? this.sky : this.studioBackground;
-    this.scene.fog = observe && !this.isPlanView ? new T.Fog(this.tint, 39, 145) : null;
     this.applyImage();
-    if(observe)this.key.position.set(-19,32,19);else this.key.position.set(-4.8,9.3,4.7);
     const size = observe ? 33 : 10;
     const shadow = this.key.shadow.camera;
     shadow.left=-size;shadow.right=size;shadow.top=size;shadow.bottom=-size;shadow.updateProjectionMatrix();
@@ -453,7 +479,6 @@ export class GardenView {
     }
     this.marked = undefined;
     if (!this.arranging) this.updateMarkers(0);
-    if (this.mode === 'Observe') this.scene.fog = this.isPlanView ? null : new T.Fog(this.tint, 39, 145);
     this.applyImage();
     this.syncOrbit();
   }
@@ -575,26 +600,11 @@ export class GardenView {
     this.orbit.enableDamping = !still;
   }
 
-  setLand(settings: LandSettings) {
-    const next = buildLandscape(this.scene, settings);
-    this.field = this.activeWorld ? worldField(this.activeWorld, next.terrain) : undefined;
+  private setLand(world: WorldDocument) {
+    const next = buildLandscape(this.scene, world.land, world.environment?.surface, world.objects);
     this.garden.dispose();
     this.garden = next;
     next.root.visible = this.mode === 'Observe';
-    this.applyImage();
-    for (const item of this.beings.values()) {
-      const t = next.terrain, radius = bodyPlans[item.specimen.genome.plan].radius(item.specimen.genome);
-      item.movement = new GardenMotion(item.specimen.genome, t.anchors[item.slot], this.field?.obstacles ?? t.landmarks, radius, this.field?.field ?? { bounds: worldBounds, height: t.height, slope: t.slope, points: t.points });
-      item.ground.height = t.height;
-      item.terrainY = t.height(item.movement.pose.x, item.movement.pose.z);
-      item.renderedAt = 0;
-      this.pose(item);
-    }
-    this.motions = Array.from(this.beings.values(), item => item.movement);
-    this.relations = new GardenRelations(next.terrain.settings.seed);
-    this.moments.clear();
-    if (this.arranging) this.resetMakeCamera();
-    else this.resetCamera();
   }
 
   async setPhoto(file: Blob) {
@@ -617,13 +627,28 @@ export class GardenView {
     const s = this.imageSettings, visible = this.mode === 'Observe';
     const strength = this.photo.loaded ? s.color : 0;
     const backdrop = visible && !this.isPlanView;
-    this.sky.copy(this.clearSky).lerp(this.photo.tint, strength * .75);
-    this.tint.copy(this.sky).lerp(this.photo.tint, strength * .29);
-    const fog = this.scene.fog;
-    if (fog instanceof T.Fog) fog.color.copy(this.tint);
+    const environment = this.activeWorld?.environment;
+    const atmosphere = environment?.atmosphere ?? defaultAtmosphere;
+    const light = visible ? environment?.lighting ?? defaultLighting : defaultLighting;
+    this.sky.set(atmosphere.sky).lerp(this.photo.tint, strength * .75);
+    this.tint.set(atmosphere.fog).lerp(this.photo.tint, strength * .82);
+    if (backdrop) {
+      const fog = this.scene.fog instanceof T.Fog ? this.scene.fog : new T.Fog(this.tint);
+      fog.color.copy(this.tint);
+      fog.near = atmosphere.distance;
+      fog.far = atmosphere.distance + atmosphere.depth;
+      this.scene.fog = fog;
+    } else this.scene.fog = null;
     this.garden.groundMat.color.copy(this.groundColor).lerp(this.photo.tint, visible ? strength * .38 : 0);
-    this.skyLamp.color.set('#fff7e7').lerp(this.photo.tint, visible ? strength * .28 : 0);
-    this.key.color.copy(this.sunColor).lerp(this.photo.tint, visible ? strength * .14 : 0);
+    this.skyLamp.color.set(light.ambient).lerp(this.photo.tint, visible ? strength * .28 : 0);
+    this.skyLamp.groundColor.set(light.bounce);
+    this.skyLamp.intensity = light.fill;
+    this.key.color.set(light.key).lerp(this.photo.tint, visible ? strength * .14 : 0);
+    this.key.intensity = light.intensity;
+    if (visible) {
+      const bearing = T.MathUtils.degToRad(light.bearing);
+      this.key.position.set(Math.sin(bearing) * 26.87, light.elevation, Math.cos(bearing) * 26.87);
+    } else this.key.position.set(-4.8, 9.3, 4.7);
     this.garden.setBackdrop(backdrop && this.photo.loaded && s.mode === 'Backdrop' ? s.ground : 0);
     this.photo.apply(this.worldCamera.aspect, s, backdrop);
   }
@@ -646,7 +671,7 @@ export class GardenView {
   }
   soundPresence(seed: string) {
     const pose = this.beings.get(seed)?.movement.pose;
-    return { x: pose?.x ?? 0, z: pose?.z ?? 0, resting: pose?.phase === 'Rest' || this.paused,
+    return { x: pose?.x ?? 0, z: pose?.z ?? 0, resting: pose?.phase === 'Rest' || (this.arranging ? this.makeActivity === 'Paused' : this.paused),
       gathering: pose?.intent === 'Gather' };
   }
 
@@ -686,10 +711,11 @@ export class GardenView {
     const delta = this.lastTime ? (ms - this.lastTime) / 1000 : 0;
     this.lastTime = ms;
     if (!this.available || document.hidden) return;
-    const { steps, remainder } = limitFrame(delta, this.carry);
+    const activity = this.arranging ? this.makeActivity : this.paused ? 'Paused' : 'Live';
+    const { steps, remainder } = activityFrame(delta, this.carry, activity);
     this.carry = remainder;
     const observe = this.mode === 'Observe';
-    if (!this.paused && !this.arranging && steps) {
+    if (steps) {
       for (let i = 0; i < steps; i++) {
         for (const motion of this.motions) motion.step(stepSeconds, this.motions);
         this.relations.step(stepSeconds, this.motions);
