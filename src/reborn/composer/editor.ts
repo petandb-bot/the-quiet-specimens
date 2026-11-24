@@ -316,7 +316,11 @@ export class WorldComposer {
       button.setAttribute('aria-expanded', String(!this.folded));
       this.positionInspector();
     });
-    this.click('compose-done', () => { this.setTool('select'); this.panel.querySelector<HTMLButtonElement>('[data-tool="select"]')?.focus(); });
+    this.click('compose-done', () => {
+      this.object = undefined;
+      this.setTool('select');
+      this.panel.querySelector<HTMLButtonElement>('[data-tool="select"]')?.focus();
+    });
     this.change('compose-activity', () => this.garden.setMakeActivity(this.select('compose-activity').value as MakeActivity));
     for (const button of this.panel.querySelectorAll<HTMLButtonElement>('[data-life-tab]')) {
       button.addEventListener('click', () => {
