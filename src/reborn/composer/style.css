@@ -228,7 +228,7 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
   #compose-recovery { font-size: .58rem; }
   .make-help, .make-inspector { top: max(58px, calc(env(safe-area-inset-top) + 50px)); padding: 8px 9px; max-height: min(33svh, 300px); }
   .make-help { left: 8px; max-width: min(270px, calc(100vw - 16px)); z-index: 1; }
-  .make-inspector { right: 8px; width: min(270px, calc(100% - 16px)); max-height: min(48svh, calc(100svh - 270px)); }
+  .make-inspector { right: 8px; width: min(270px, calc(100% - 16px)); max-height: clamp(48svh, calc(100svh - 330px), 60svh); }
   .composer .make-heading button, .composer .make-finish button, .make-inspector-actions button, .compose-line button { min-height: 44px; }
   .make-overlay .land-panel { top: 58px; bottom: auto; max-height: min(43svh, 440px); }
 }
