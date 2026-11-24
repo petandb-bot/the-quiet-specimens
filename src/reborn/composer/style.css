@@ -296,3 +296,6 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 }
 #world-lock-summary { margin: 2px 0; font-size: .74rem; color: var(--dock-muted); }
 .world-seed-details > label { max-width: 330px; margin: 5px 0; }
+@media (max-width: 625px) {
+  .make-activity select { padding-right: 22px; }
+}

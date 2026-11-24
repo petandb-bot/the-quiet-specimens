@@ -173,3 +173,44 @@ The low dock keeps the desktop foreground visible during placement. The preview 
 ### Scope
 
 The working draft covers scenes and an accepted photo in this browser profile. Undo history, the current camera and live resident activity reset on reload. Selecting, replacing or clearing the photo file saves the new attachment separately from layout Undo. Physical iPhone Safari and Android devices, hardware-GPU performance and long-session storage eviction were outside this pass.
+
+## B4.2 World Playground
+
+The branch starts from main `e3bd32d`, the published Make refinements. The baseline passed a clean install, 61 tests, build and distribution checks. The review branch adds regression cases for schema 1 migration with photo attachment, eight deterministic compositions, footprint separation, six independent layers, lock behavior through a style change, edited and linked structure retention, Undo/Redo, object limits, explicit Place priority and resident activity time.
+
+### Real WebGL views
+
+Chromium 156 and ANGLE/SwiftShader rendered these standard-seed worlds through the production bundle. The images were captured at 960 × 640 in the observation view with the controls hidden. Small copies of the same captures supply the Generate preview.
+
+| World style | Capture |
+| --- | --- |
+| Elsewhere | [Elsewhere](screenshots/world-playground/styles/elsewhere.jpg) |
+| Pale Colony | [Pale Colony](screenshots/world-playground/styles/pale-colony.jpg) |
+| Oxide Field | [Oxide Field](screenshots/world-playground/styles/oxide-field.jpg) |
+| Shallow Memory | [Shallow Memory](screenshots/world-playground/styles/shallow-memory.jpg) |
+| Uncertain Garden | [Uncertain Garden](screenshots/world-playground/styles/uncertain-garden.jpg) |
+| Black Mineral | [Black Mineral](screenshots/world-playground/styles/black-mineral.jpg) |
+| Incorrect Paradise | [Incorrect Paradise](screenshots/world-playground/styles/incorrect-paradise.jpg) |
+| Abandoned Geometry | [Abandoned Geometry](screenshots/world-playground/styles/abandoned-geometry.jpg) |
+
+Pale Colony and Shallow Memory leave broad clearings. Oxide Field gives its structures a diagonal rhythm. Uncertain Garden places small forms in groups, and Abandoned Geometry gives the vertical structures room to establish scale. Black Mineral keeps the residents legible against darker ground.
+
+### Browser interaction
+
+The production app ran at the GitHub Pages project subpath. The desktop pass placed and directly dragged a model, rotated and resized it, duplicated and deleted it, applied a finish, and mutated it while retaining the finish. It linked a Place and reopened a deliberately old schema 1 IndexedDB record with its real JPEG and linked contents. The desktop generator changed styles, respected terrain and resident locks, retained the JPEG and authored structure through successive rolls, randomized only lighting, and restored style and light edits with Undo/Redo.
+
+For Living Make, a paused region of the canvas remained pixel-identical across renders. Slow and Live changed that region. The fixed-step tests separately verify the 30% and normal clock rates and preserve movement state when obstacles change. The browser detected output on the master audio graph and the same context through Observe, Make and Focus. Reload restored saved locks and style, and Legacy rendered WebGL. There were no JavaScript or shader errors in the completed interactions.
+
+The 390 × 844 touch pass placed by tap, dragged the placed form, pinched without an accidental placement, folded the dock, and changed style without horizontal overflow. The inspector moves above or below the selection on smaller screens so the selected object remains reachable. The displayed screenshots are from the running app.
+
+[Desktop Make](screenshots/world-playground/desktop-make.jpg) · [Mobile Make](screenshots/world-playground/mobile-make.jpg)
+
+On the review branch, `npm ci`, all 68 automated tests, `npm run build` and `node scripts/check-dist.mjs` passed.
+
+### Resource check
+
+At 680 × 560 in Paused Make, Chromium ran four cycles of Abandoned Geometry, a world reroll, Elsewhere, and Reset to Style. The equivalent Elsewhere scenes each held 356 live WebGL buffers, 6 textures, 5 framebuffers, 2 renderbuffers and 7 shader programs. JavaScript heap after forced collection measured 13.18, 13.25, 13.43 and 13.40 MB across the four samples. The test measures resource counts and short-session heap behavior with software rendering. Hardware frame rate and long-session memory still need device measurements.
+
+### Remaining verification and next phase
+
+Physical iPhone Safari, Android devices, sustained rendering on a hardware GPU, and a formal usability study remain pending. The short-session creation goals are design targets. For B4.2.1, test the existing selection, touch gestures and generation on those devices first, then use the current terrain layer and safe placement rules as the basis for terrain brushes and surface paint.
