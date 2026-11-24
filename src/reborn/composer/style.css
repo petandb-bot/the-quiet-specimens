@@ -66,7 +66,7 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 .make-tools {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 4px;
   padding: 8px;
   border-bottom: 1px solid #a9ad98;
   background: #e5e9dc;
@@ -235,4 +235,67 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 @media (max-width: 380px) {
   .identity .brand { display: none; }
   #compose-reset { display: none; }
+}
+
+/* The five Make categories share the dock. Settings sit above the canvas. */
+#compose-fold { flex: none; padding-inline: 7px; }
+.tools-folded { width: auto; }
+.tools-folded .make-tools { background: transparent; border: 0; }
+.tools-folded .make-tools > :not(#compose-fold),
+.tools-folded .make-palette, .tools-folded .make-status,
+.make-overlay .make-palette > :not(.compose-tabs) { display: none; }
+.make-life-nav, .world-generator-actions {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 5px;
+}
+.make-life-nav { margin-bottom: 8px; }
+.make-activity select { font-size: .75rem; }
+.make-generate {
+  display: grid;
+  gap: 4px;
+  max-height: min(43svh, 430px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.world-style-line {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 9px;
+  align-items: end;
+}
+.world-style-line img { display: block; object-fit: cover; background: #dbd9cd; border-radius: 4px; }
+.world-generator-actions { justify-content: start; margin-top: 5px; flex-wrap: wrap; }
+#world-randomize { background: var(--dock-active); color: #fff6e1; }
+.world-layers { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.world-layer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+  border-bottom: 1px solid #a3aa9470;
+}
+.world-layer > span { margin-right: auto; font-size: .76rem; }
+.world-layer label { display: flex; align-items: center; white-space: nowrap; }
+.world-layer label input { width: 17px; height: 17px; }
+.world-seed-details form { max-width: 330px; }
+.make-inspector-actions { flex-wrap: wrap; }
+.make-inspector-actions button { flex: 1 0 29%; }
+.appearance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+.land-panel .appearance-fields input[type=color] { padding: 3px; }
+.make-overlay #land-panel, .make-overlay #image-panel { max-height: calc(100svh - 185px); }
+@media (max-width: 625px) {
+  #compose-fold, .make-generate button, .make-generate select, .make-life-nav button { min-height: 44px; }
+  .compose-tabs { flex-wrap: wrap; }
+  .make-generate { max-height: min(43svh, 360px); }
+  .world-style-line { grid-template-columns: 88px minmax(0, 1fr); }
+  .world-style-line img { width: 88px; height: 68px; }
+  .world-layers { grid-template-columns: 1fr; }
+  .make-overlay #land-panel, .make-overlay #image-panel { max-height: min(62svh, 430px); }
+}
+#world-lock-summary { margin: 2px 0; font-size: .74rem; color: var(--dock-muted); }
+.world-seed-details > label { max-width: 330px; margin: 5px 0; }
+@media (max-width: 625px) {
+  .make-activity select { padding-right: 22px; }
 }

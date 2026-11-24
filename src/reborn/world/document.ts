@@ -1,3 +1,5 @@
+import type { Environment } from '../environment/settings';
+import { defaultEnvironment } from '../environment/settings';
 import { clamp, random } from '../../core/random';
 import type { GardenSpecimen } from '../genome';
 import type { GroundPoint } from '../motion';
@@ -55,6 +57,7 @@ export interface WorldDocument {
   places: readonly Place[];
   residents: readonly WorldResident[];
   image: ImageSettings;
+  environment?: Environment;
 }
 
 export const objectTitle = (kind: ObjectKind) => ({ arch: 'Arch', monolith: 'Monolith', ring: 'Ring', stones: 'Stones', flora: 'Flora', kinetic: 'Kinetic' })[kind];
@@ -68,7 +71,8 @@ export function landmarksFor(terrain: Terrain): WorldObject[] {
 export function createWorld(terrain: Terrain, residents: readonly WorldResident[] = [], id: string = crypto.randomUUID()): WorldDocument {
   const time = new Date().toISOString();
   return { schemaVersion: 1, generatorVersion: 1, id, name: 'Elsewhere', createdAt: time, updatedAt: time,
-    land: terrain.settings, objects: landmarksFor(terrain), suppressed: [], places: [], residents, image: { ...defaultImage } };
+    land: terrain.settings, objects: landmarksFor(terrain), suppressed: [], places: [], residents, image: { ...defaultImage },
+    environment: defaultEnvironment(terrain.settings.seed) };
 }
 
 export function changeLand(world: WorldDocument, settings: LandSettings) {
@@ -117,12 +121,17 @@ export function placeCenter(place: Place, objects: readonly WorldObject[]): Grou
 export function layoutPoints(world: WorldDocument, terrain: Terrain) {
   const points: PointOfInterest[] = [];
   for (const item of world.objects) {
-    if (item.layoutIndex === undefined || item.distant || world.places.some(place => place.linkedObjectId === item.id && place.enabled)) continue;
+    if (item.distant || world.places.some(place => place.enabled && (place.linkedObjectId === item.id
+      || !place.linkedObjectId && Math.hypot(place.x - item.x, place.z - item.z) <= place.radius))) continue;
     const bearing = item.yaw + 1.2;
     const distance = item.radius + 2.25;
-    points.push({ id: item.id, shelter: item.kind === 'arch' || item.kind === 'stones' ? .9 : .36, position: [
+    const role = item.kind === 'arch' ? 'Shelter' : item.kind === 'stones' ? 'Quiet' : 'Curiosity';
+    const position: GroundPoint = [
       clamp(item.x + Math.cos(bearing) * distance, -25, 25), clamp(item.z + Math.sin(bearing) * distance, -25, 25),
-    ] });
+    ];
+    const original = item.sourceForm !== undefined && !item.edited;
+    if (original) points.push({ id: item.id, position, shelter: item.kind === 'arch' || item.kind === 'stones' ? .9 : .36 });
+    else points.push({ id: item.id, position, role, shelter: role === 'Shelter' ? .9 : role === 'Quiet' ? .7 : .36, weight: .56 });
   }
   points.push({ id: 'open-reach', shelter: .16, position: [2, -10] });
   for (const place of world.places) {

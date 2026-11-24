@@ -9,9 +9,10 @@
 | B3 · Living Territories | Home ranges, bounded place memory, distinct rest patterns, occasional encounters and imitation | Merged in PR #1 |
 | B4.1 · Place Composer | Versioned world documents, object and place editing, resident placement, and undo and redo | Merged in PR #2 |
 | B4.1.1 · Still & Alive | Reliable audio, still and gentle cameras, World/Solo, Atlas and resident observation | Merged in PR #3 |
-| B4.1.2 · Playful Composer | Observe and Make, direct placement, contextual tools, touch navigation, and one local working draft | Review branch |
-| B4.2 · Personal Land | Local terrain changes, surface regions, distinct world styles, light and fog, and photo palettes | Next development unit |
-| B4.3 · World Archive | IndexedDB worlds and images, portable files, thumbnails, and camera bookmarks | Planned |
+| B4.1.2 · Playful Composer | Observe and Make, direct placement, contextual tools, touch navigation, and one local working draft | Published |
+| B4.2 · World Playground | Eight world styles, layer locks, direct manipulation, and resident activity in Make | Review branch |
+| B4.2.1 · Personal Land | Terrain brushes, surface paint, water, shape families, and clusters | Next development unit |
+| B4.3 · World Collection | Multiple worlds, duplication, JSON, camera bookmarks, and high-resolution stills | Planned |
 | B5.1 · Sound Ecology | Bounded multi-specimen responses, environmental resonance, and long-running audio | Planned |
 | B5.2 · Living Theatre | Resident encounters, gestures, and the small events between them | Planned |
 | B5.3 · Environmental Time | Slowly varying light, atmosphere, and environmental influence on resident activity | Planned |
@@ -25,3 +26,5 @@ Assembly, Fold, Orbit, and Root are future body-plan studies. The earlier aquari
 [World Refinement](ELSEWHERE.md) · [Living Territories](LIVING_TERRITORIES.md) · [Verification](VERIFICATION.md)
 
 [World Composer](WORLD_COMPOSER.md) · [World Archive](WORLD_ARCHIVE.md)
+
+[World Styles](WORLD_STYLES.md) · [World Generator](WORLD_GENERATOR.md)

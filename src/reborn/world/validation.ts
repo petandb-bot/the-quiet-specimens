@@ -1,3 +1,4 @@
+import { isEnvironment } from '../environment/settings';
 import { finishes, objectKinds, objectLimit, placeLimit, placeRoles } from './document';
 import type { WorldDocument } from './document';
 import { gardenMaterials, gardenPlans } from '../genome';
@@ -18,6 +19,7 @@ function dateRecord(value: Record<string, unknown>) {
 export function isWorldDocument(value: unknown): value is WorldDocument {
   if (!record(value) || value.schemaVersion !== 1 || value.generatorVersion !== 1 || !text(value.id)
     || !text(value.name) || !dateRecord(value)) return false;
+  if (value.environment !== undefined && !isEnvironment(value.environment)) return false;
   const { land, image, objects, places, residents, suppressed } = value;
   if (!record(land) || !text(land.seed) || !member(land.kind, terrainKinds)
     || ![land.elevation, land.roughness, land.openness, land.density].every(unit)) return false;
@@ -25,7 +27,7 @@ export function isWorldDocument(value: unknown): value is WorldDocument {
     || !within(image.x, -1, 1) || !within(image.y, -1, 1)
     || ![image.horizon, image.blur, image.color, image.ground].every(unit)) return false;
   if (!Array.isArray(objects) || objects.length > objectLimit || !Array.isArray(places) || places.length > placeLimit
-    || !Array.isArray(residents) || residents.length > 9 || !Array.isArray(suppressed) || suppressed.length > 16 || !suppressed.every(text)) return false;
+    || !Array.isArray(residents) || residents.length > 9 || !Array.isArray(suppressed) || suppressed.length > objectLimit || !suppressed.every(text)) return false;
 
   const ids = new Set<string>();
   for (const item of objects) {

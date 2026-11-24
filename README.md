@@ -1,6 +1,6 @@
 # The Quiet Specimens — Reborn
 
-**Elsewhere · B4.1.2 Playful Composer**
+**Elsewhere · B4.2 World Playground**
 
 生きているはずのない物体が、自分の意思で動いているように見える地平線まで続く風景です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
 
@@ -29,13 +29,13 @@ npm run build
 
 ## 世界を作る
 
-**Make** でパレットから形を選び、地面をクリックまたはタップすると続けて配置できます。**Move** は地面に沿って物体を動かし、**Select** は選んだ物体の回転・大きさ・仕上げを開きます。**Camera** や Space＋ドラッグで視点を動かせます。スマートフォンでは２本指でパン・ピンチできます。
+**Make → Generate** から8種類の世界を選べます。**Randomize world** で別の構図を試し、**Layers** で地形、地表、構造物、空と霧、照明、住民の好きな部分を固定できます。**Advanced** では World Seed を入力して再生成できます。
 
-**Places** では休息場所や興味を引く場所を作り、**Residents** では住民の出発地点や Home を指定できます。**Observe** に戻ると、鑑賞カメラと住民の活動が再開します。音はどちらのモードでも操作できます。
+**Objects** で形とサイズを選んで地面に置き、**Done** で配置を終えます。置いた物体はクリックやタップで選択し、そのままドラッグできます。近くの編集欄から大きさや仕上げを調整でき、**Mutate** で形を変えられます。**Land** は起伏や余白、**Atmosphere** は空・霧・光と写真、**Life** は住民と場所を編集します。
 
-配置・地形・住民の設定と読み込んだ写真は、このブラウザの作業用下書き１件に自動保存されます。カメラと Undo 履歴は再読み込み時にリセットされます。
+Make 中の住民は **Paused / Slow / Live** で切り替えられます。設定と写真は作業用下書き１件に自動保存されます。空間や配置を直したあと、**Observe** に戻って住民の動きや音を眺められます。
 
-[World Composer](docs/WORLD_COMPOSER.md) · [場所の役割](docs/PLACE_SYSTEM.md) · [世界データ](docs/WORLD_DOCUMENT.md)
+[World Styles](docs/WORLD_STYLES.md) · [World Generator](docs/WORLD_GENERATOR.md) · [World Composer](docs/WORLD_COMPOSER.md)
 
 ## 操作
 
@@ -63,9 +63,9 @@ Elsewhere は WebGL 2 を使います。作品の持ち出しや複数ワール�
 
 ## Elsewhere
 
-- **Make → Terrain** で Rolling Field、Terraces、Hollow Land を選びます。**Composition** から余白とランドマークの密度を調整できます。**Apply land** / **New terrain** では住民を新しい地形に配置し直します。
+- **Make → Land** で Rolling Field、Terraces、Hollow Land を選びます。起伏、粗さ、余白を調整して **Apply land** を押します。地形が住民の現在位置をふさぐ場合は、近くの安全な場所へ移します。構造物の密度は **Generate → Advanced** で調整できます。
 - **Camera** で **Fixed**、手動の **Landscape**、**Soft Follow**、**Observatory**、**Atlas** を選べます。
-- **Make → Photo** から写真を選べます。**Backdrop** は遠景に写真を使い、**Atmosphere** は抽出色を地形・霧・照明に反映します。写真はブラウザ内だけで処理します。
+- **Make → Atmosphere** から写真を選べます。**Backdrop** は遠景に写真を使い、**Atmosphere** は抽出色を地形・霧・照明に反映します。写真はブラウザ内だけで処理します。
 
 [Elsewhere の地形・カメラ・写真](docs/ELSEWHERE.md) · [Living Territories の行動設計](docs/LIVING_TERRITORIES.md)
 

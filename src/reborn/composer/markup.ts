@@ -1,6 +1,7 @@
 import { finishes, objectKinds, objectTitle } from '../world/document';
 import { finishColors } from '../objects/appearance';
 import { objectSizes } from './palette';
+import { generatorMarkup } from './generator-panel';
 
 function sizeButtons(scope: 'brush' | 'object') {
   return `<div class="make-size-options" role="group" aria-label="${scope === 'brush' ? 'Placement size' : 'Object size'}">
@@ -14,17 +15,20 @@ export const editorMarkup = `
     <div class="make-heading"><strong>Make it yours</strong><button type="button" id="compose-help-close" aria-label="Dismiss help">×</button></div>
     <ol><li>Choose a shape from the palette.</li><li>Click or tap the ground to place it. Keep going.</li><li>Pick a size before placing, or use Edit last to adjust a placed shape.</li></ol>
     <details><summary>Shortcuts and local draft</summary>
-      <p>Space + drag to orbit, right-drag to pan, and scroll to zoom. On touch, use two fingers to pan and pinch to zoom. Esc returns to Select.</p>
+      <p>Space + drag to orbit, right-drag to pan, and scroll to zoom. On touch, use two fingers to pan and pinch to zoom. Escape or Done ends placement. Drag a selected object to move it.</p>
       <p>One draft in this browser. Terrain, objects, places, resident settings and a loaded photo are restored. Camera, live activity and Undo history reset when you reload. Clearing site data removes the draft. Reload to pick up a newer draft made in another tab.</p>
     </details>
   </aside>
   <div class="make-dock">
     <div class="make-tools">
+      <button type="button" id="compose-fold" aria-expanded="true" aria-controls="compose-workspace">Hide tools</button>
       <div class="make-group" role="group" aria-label="Canvas tool">
         <button type="button" data-tool="select" title="Select a shape to edit"><span aria-hidden="true" class="make-select-mark"></span>Select</button>
-        <button type="button" data-tool="move" title="Drag a shape to move it"><span aria-hidden="true">✥</span>Move</button>
-        <button type="button" data-tool="place" title="Place the current shape"><span aria-hidden="true">+</span>Place</button>
         <button type="button" data-tool="camera" title="Drag to move the camera"><span aria-hidden="true">↻</span>Camera</button>
+      </div>
+      <div class="make-group make-activity">
+        <label class="visually-hidden" for="compose-activity">Resident activity in Make</label>
+        <select id="compose-activity" title="Resident activity in Make"><option>Paused</option><option selected>Slow</option><option>Live</option></select>
       </div>
       <div class="make-group make-history" role="group" aria-label="History">
         <button type="button" id="compose-undo" aria-label="Undo" title="Undo · Ctrl/⌘ Z">↶</button>
@@ -37,15 +41,21 @@ export const editorMarkup = `
         <button type="button" id="compose-help" aria-label="Make help" aria-controls="compose-help-panel" aria-expanded="false">?</button>
       </div>
     </div>
-    <div class="make-palette">
+    <div class="make-palette" id="compose-workspace">
       <nav class="compose-tabs" aria-label="Make workspace">
+        <button type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">Land</button>
         <button type="button" data-compose-tab="objects">Objects</button>
-        <button type="button" data-compose-tab="places">Places</button>
-        <button type="button" data-compose-tab="residents">Residents</button>
-        <button type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">Terrain</button>
-        <button type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Photo</button>
+        <button type="button" data-compose-tab="residents">Life</button>
+        <button type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Atmosphere</button>
+        <button type="button" data-compose-tab="generate">Generate</button>
         <span class="make-count" id="compose-object-count"></span>
       </nav>
+      <div class="make-life-nav" id="compose-life-nav" hidden>
+        <div class="make-group" role="group" aria-label="Life tools">
+          <button type="button" data-life-tab="residents">Residents</button>
+          <button type="button" data-life-tab="places">Places</button>
+        </div>
+      </div>
       <section data-compose-panel="objects" aria-label="Object palette">
         <div class="make-shapes">${objectKinds.map(kind => `<button type="button" class="make-shape" data-kind="${kind}"
            aria-pressed="false"><span class="shape-preview" aria-hidden="true"></span><span>${objectTitle(kind)}</span></button>`).join('')}</div>
@@ -64,9 +74,11 @@ export const editorMarkup = `
           <details id="compose-brush-advanced"><summary>Seed</summary><label class="visually-hidden" for="compose-seed">Placement seed</label>
             <input id="compose-seed" maxlength="48" autocomplete="off" spellcheck="false"></details>
           <button type="button" id="compose-edit-last" aria-controls="compose-object-edit" hidden>Edit last</button>
+          <button type="button" id="compose-done">Done</button>
         </div>
       </section>
       ${placeAndResidentMarkup()}
+      ${generatorMarkup}
     </div>
     <div class="make-status"><p id="compose-message" role="status"></p><span id="compose-recovery" role="status">Draft loading…</span></div>
   </div>
@@ -77,7 +89,6 @@ export const editorMarkup = `
       ${sizeButtons('object')}
       <label>Fine size <output id="compose-size-value"></output><input type="range" id="compose-size" min=".25" max="4" step=".01"></label>
     </div>
-    <label>Rotate <output id="compose-angle-value"></output><input type="range" id="compose-angle" min="-180" max="180" step="1"></label>
     <div class="make-finish" role="group" aria-label="Color and finish">Finish
       <div>${finishes.map(finish => {
         const label = finish === 'Original' ? 'Seed color' : finish;
@@ -85,12 +96,13 @@ export const editorMarkup = `
         return `<button type="button" data-finish="${finish}" aria-label="${label}" title="${label}" style="--swatch:${color}"></button>`;
       }).join('')}</div>
     </div>
-    <button type="button" id="compose-object-randomize">↻ Randomize look</button>
     <div class="make-inspector-actions"><button type="button" id="compose-object-move">Move</button>
-      <button type="button" id="compose-copy">Duplicate</button><button type="button" id="compose-delete">Delete</button></div>
+      <button type="button" id="compose-rotate">Rotate</button><button type="button" id="compose-copy">Duplicate</button>
+      <button type="button" id="compose-object-randomize">Mutate</button><button type="button" id="compose-delete">Delete</button></div>
     <details id="compose-object-advanced"><summary>Advanced</summary>
       <div class="compose-line"><label>X<input type="number" id="compose-object-x" step=".25" min="-112" max="112"></label>
         <label>Z<input type="number" id="compose-object-z" step=".25" min="-112" max="112"></label></div>
+      <label>Fine rotation <output id="compose-angle-value"></output><input type="range" id="compose-angle" min="-180" max="180" step="1"></label>
       <label>Seed<input id="compose-object-seed" maxlength="48" autocomplete="off" spellcheck="false"></label>
       <label>Height <output id="compose-height-value"></output><input type="range" id="compose-height" min="0" max="9" step=".05"></label>
     </details>

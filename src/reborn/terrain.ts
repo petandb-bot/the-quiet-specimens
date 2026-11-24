@@ -20,9 +20,9 @@ export interface Terrain {
 }
 const ease = (t: number) => t * t * (3 - 2 * t);
 
-export function makeTerrain(input: LandSettings): Terrain {
+export function normalizeLand(input: LandSettings): Required<LandSettings> {
   const normalized = (value: number | undefined, fallback: number) => Number.isFinite(value) ? clamp(value!) : fallback;
-  const settings: Required<LandSettings> = {
+  return {
     seed: input.seed.trim().slice(0, 48) || defaultLand.seed,
     kind: terrainKinds.includes(input.kind) ? input.kind : defaultLand.kind,
     elevation: normalized(input.elevation, defaultLand.elevation),
@@ -30,6 +30,10 @@ export function makeTerrain(input: LandSettings): Terrain {
     openness: normalized(input.openness, defaultLand.openness),
     density: normalized(input.density, defaultLand.density),
   };
+}
+
+export function makeTerrain(input: LandSettings): Terrain {
+  const settings = normalizeLand(input);
   const seed = hashText('elsewhere/terrain/1/' + settings.seed);
   const corner = (x: number, z: number) => {
     let h = Math.imul(x, 374761393) ^ Math.imul(z, 668265263) ^ seed;

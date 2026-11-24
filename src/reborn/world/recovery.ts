@@ -1,4 +1,5 @@
 import type { WorldDocument } from './document';
+import { migrateWorld } from './migration';
 import { isWorldDocument } from './validation';
 import { photoByteLimit } from './image-settings';
 
@@ -66,7 +67,7 @@ export class WorkingDraftStore {
     if (stored === undefined) return undefined;
     if (!isWorkingDraft(stored)) throw new Error('The local draft could not be read');
     this.revision = (stored as Partial<StoredDraft>).revision;
-    return stored;
+    return { ...stored, world: migrateWorld(stored.world) };
   }
 
   async save(draft: WorkingDraft) {

@@ -12,7 +12,8 @@ import { defaultLand, terrainKinds } from './terrain';
 import type { TerrainKind } from './terrain';
 import { defaultImage } from './photo';
 import type { ImageSettings } from './photo';
-import { freshSeed } from '../core/random';
+import { AppearanceControls, appearanceMarkup } from './composer/appearance-controls';
+import { environmentOf } from './environment/generator';
 import type { GardenMode } from './view';
 import './style.css';
 import './composer/style.css';
@@ -54,22 +55,22 @@ element('app').innerHTML = `
     </div>
     <section class="composer" id="compose-panel" aria-label="World Composer" hidden></section>
     <section class="land-panel" id="land-panel" aria-labelledby="land-title" hidden>
-      <div class="settings-heading"><h2 id="land-title" tabindex="-1">Terrain</h2>
-        <button id="land-close" type="button" aria-label="Close terrain settings">Close <span aria-hidden="true">×</span></button></div>
+      <div class="settings-heading"><h2 id="land-title" tabindex="-1">Land</h2>
+        <button id="land-close" type="button" aria-label="Close land settings">Close <span aria-hidden="true">×</span></button></div>
       <label>Terrain<select id="land-kind"></select></label>
       <label>Elevation<input id="land-height" type="range" min="0" max="100" value="48"></label>
       <label>Roughness<input id="land-rough" type="range" min="0" max="100" value="26"></label>
-      <label>World seed<input id="land-seed" maxlength="48" value="ELSEWHERE-01"></label>
-      <details><summary>Composition</summary>
-        <label>Openness<input id="land-open" type="range" min="0" max="100" value="61"></label>
-        <label>Landmark density<input id="land-density" type="range" min="0" max="100" value="66"></label>
+      <label>Openness<input id="land-open" type="range" min="0" max="100" value="61"></label>
+      <details><summary>Advanced</summary>
+        <label>Terrain seed<input id="land-seed" maxlength="48" value="ELSEWHERE-01"></label>
       </details>
-      <div class="land-buttons"><button id="land-apply" type="button">Apply land</button><button id="land-new" type="button">New terrain</button></div>
+      <button id="land-apply" type="button">Apply land</button>
       <p class="land-note">Terrain changes keep your residents.</p>
     </section>
     <section class="land-panel" id="image-panel" aria-labelledby="image-title" hidden>
-      <div class="settings-heading"><h2 id="image-title" tabindex="-1">Photo</h2>
-        <button id="image-close" type="button" aria-label="Close photo settings">Close <span aria-hidden="true">×</span></button></div>
+      <div class="settings-heading"><h2 id="image-title" tabindex="-1">Atmosphere</h2>
+        <button id="image-close" type="button" aria-label="Close atmosphere settings">Close <span aria-hidden="true">×</span></button></div>
+      ${appearanceMarkup}
       <label>Local photo<input id="land-photo" type="file" accept="image/*"></label>
       <div id="photo-controls" class="region-fields" hidden>
         <label>Image mode<select id="image-mode"><option>Backdrop</option><option>Atmosphere</option></select></label>
@@ -384,6 +385,9 @@ for (const key of Object.keys(panels) as Array<keyof typeof panels>) {
 }
 click('land-close', closePanel);
 click('image-close', closePanel);
+for (const category of document.querySelectorAll<HTMLButtonElement>('[data-compose-tab]')) {
+  category.addEventListener('click', () => { if (panel === 'land' || panel === 'image') showPanel(); });
+}
 document.addEventListener('pointerdown', event => {
   if (!making || (panel !== 'land' && panel !== 'image') || event.target !== graphics?.canvas
     || !event.isPrimary || event.button !== 0) return;
@@ -414,13 +418,13 @@ function applyLand() {
   try {
     composer?.setLand({
       seed: landSeed.value.trim() || defaultLand.seed, kind: landKind.value as TerrainKind,
-      elevation: value('land-height'), roughness: value('land-rough'), openness: value('land-open'), density: value('land-density'),
+      elevation: value('land-height'), roughness: value('land-rough'), openness: value('land-open'), density: composer?.document.land.density,
     });
     notice('Landscape regenerated.');
   } catch (error) { notice(error instanceof Error ? error.message : 'Terrain could not be created.'); }
 }
 click('land-apply', applyLand);
-click('land-new', () => { landSeed.value = freshSeed(); applyLand(); });
+
 
 function selectCamera(selected: CameraMode) {
   if (selected === 'Soft Follow') {
@@ -514,13 +518,16 @@ function applyImage(committed = false) {
   graphics?.setImage(settings);
   if (committed) composer?.setImage(settings);
 }
+const appearance = new AppearanceControls(element('image-panel'), (key, settings) => composer?.setAppearance(key, settings));
+
 function syncWorldControls() {
   if (!composer) return;
   const { land, image } = composer.document;
+  appearance.sync(environmentOf(composer.document));
   landKind.value = land.kind;
   landSeed.value = land.seed;
   imageMode.value = image.mode;
-  const values = { 'land-height': land.elevation, 'land-rough': land.roughness, 'land-open': land.openness, 'land-density': land.density,
+  const values = { 'land-height': land.elevation, 'land-rough': land.roughness, 'land-open': land.openness,
     'image-scale': image.scale, 'image-x': image.x, 'image-y': image.y, 'image-horizon': image.horizon, 'image-blur': image.blur,
     'image-color': image.color, 'image-ground': image.ground };
   for (const [id, value] of Object.entries(values)) element<HTMLInputElement>(id).value = String(Math.round(value * 100));
