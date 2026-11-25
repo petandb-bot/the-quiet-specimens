@@ -1,3 +1,4 @@
+import { specimenProfile } from '../specimens/profiles';
 import * as T from 'three';
 import type { GardenSpecimen } from '../genome';
 import { buildSpecimen } from '../morphology';
@@ -42,6 +43,7 @@ function renderThumbnail(renderer: T.WebGLRenderer, environment: T.Texture, root
 
 export function thumbnail(renderer: T.WebGLRenderer, specimen: GardenSpecimen, environment: T.Texture) {
   const rig = buildSpecimen(specimen.genome);
+  rig.root.scale.setScalar(specimenProfile(specimen.size).scale);
   try {
     rig.animate(new GardenMotion(specimen.genome, [0, 0]).pose);
     const camera = new T.PerspectiveCamera(33, width / height, .1, 20);

@@ -22,7 +22,12 @@ export interface MotionField {
   height: (x: number, z: number) => number;
   slope: (x: number, z: number) => number;
   points?: readonly PointOfInterest[];
+  water?: (x: number, z: number) => number;
 }
+export function toleratesWater(plan: GardenPlan, depth: number) {
+  return plan === 'VESSEL' || depth <= (plan === 'HINGE' ? .21 : .58);
+}
+
 export function canTraverse(terrain: MotionField, plan: GardenPlan, radius: number, obstacles: readonly Obstacle[],
   x: number, z: number, nextX: number, nextZ: number) {
   for (const obstacle of obstacles) {
@@ -30,6 +35,8 @@ export function canTraverse(terrain: MotionField, plan: GardenPlan, radius: numb
     const distance = Math.hypot(nextX - obstacle.x, nextZ - obstacle.z);
     if (distance < buffer && distance < Math.hypot(x - obstacle.x, z - obstacle.z) - .0001) return false;
   }
+  const depth = terrain.water?.(nextX, nextZ) ?? 0;
+  if (!toleratesWater(plan, depth) && depth >= (terrain.water?.(x, z) ?? 0) - .001) return false;
   if (plan === 'VESSEL') return true;
   const distance = Math.max(.03, Math.hypot(nextX - x, nextZ - z));
   const maximum = plan === 'HINGE' ? .69 : .87;
@@ -129,6 +136,7 @@ export class GardenMotion {
     private genome: GardenGenome, anchor: GroundPoint,
     private obstacles: readonly Obstacle[] = [], private radius = .68,
     private terrain?: MotionField,
+    private profile = { scale: 1, tempo: 1, speed: 1 },
   ) {
     const clearance = Math.max(0, radius - .75);
     const limits = terrain?.bounds ?? field;
@@ -173,6 +181,7 @@ export class GardenMotion {
   private walkable([x, z]: GroundPoint) {
     const slopeLimit = this.genome.plan === 'RELAY' ? .76 : .58;
     return Math.abs(x) <= this.limit.x && Math.abs(z) <= this.limit.z
+      && toleratesWater(this.genome.plan, this.terrain?.water?.(x, z) ?? 0)
       && (!this.terrain || this.genome.plan === 'VESSEL' || this.terrain.slope(x, z) <= slopeLimit)
       && !this.obstacles.some(item => Math.hypot(item.x - x, item.z - z) < item.radius + this.radius * .7);
   }
@@ -187,7 +196,7 @@ export class GardenMotion {
     this.target = this.destination.point;
     this.pose.intent = this.destination.intent;
     const distance = Math.hypot(this.pose.x - this.target[0], this.pose.z - this.target[1]);
-    const speed = pace[this.genome.plan] * this.genome.gait;
+    const speed = pace[this.genome.plan] * this.genome.gait * this.profile.speed;
     this.phase('Explore', Math.min(54, 4 + distance / speed * 1.75));
   }
 
@@ -250,7 +259,7 @@ export class GardenMotion {
   step(dt = stepSeconds, neighbors: readonly GardenMotion[] = []) {
     const pose = this.pose;
     pose.time += dt;
-    this.elapsed += dt;
+    this.elapsed += dt * this.profile.tempo;
     this.burst -= dt;
     this.updateResponse();
     const waiting = this.response && pose.phase === 'Explore';
@@ -308,7 +317,7 @@ export class GardenMotion {
     }
     const distance = Math.hypot(dx, dz);
     const activity = this.territory ? .84 + this.territory.traits.activity * .27 : 1;
-    let speed = pose.phase === 'Explore' ? pace[this.genome.plan] * this.genome.gait * smooth(distance / .69) * intensity * activity : 0;
+    let speed = pose.phase === 'Explore' ? pace[this.genome.plan] * this.genome.gait * this.profile.speed * smooth(distance / .69) * intensity * activity : 0;
     if (pose.phase === 'Act' && pose.gesture === 'Hop') speed = pose.action * 1.36;
     if (speed > .05) {
       let quiet = 0;
@@ -383,7 +392,7 @@ export class GardenMotion {
     }
     pose.speed = Math.hypot(this.vx, this.vz);
     if (pose.speed > .032) this.face(this.vx, this.vz, dt);
-    pose.stride += pose.speed * dt * (this.genome.plan === 'HINGE' ? 9 : 4.3);
+    pose.stride += 1 / this.profile.scale * pose.speed * dt * (this.genome.plan === 'HINGE' ? 9 : 4.3);
     return pose;
   }
 

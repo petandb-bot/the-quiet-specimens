@@ -1,10 +1,11 @@
+import type { ObjectKind } from './world/document';
 import { clamp, random } from '../core/random';
 import type { GroundPoint, Obstacle } from './motion';
 import type { PlaceRole } from './world/document';
 
 export interface Landmark extends Obstacle {
   id: string;
-  kind: 'arch' | 'monolith' | 'ring' | 'stones' | 'flora' | 'kinetic';
+  kind: ObjectKind;
   yaw: number;
   scale: number;
   distant: boolean;

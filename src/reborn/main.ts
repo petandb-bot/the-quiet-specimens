@@ -1,3 +1,4 @@
+import { replayPersonalSpecimen } from './specimens/generator';
 import { ResidentBrowser } from './observation/residents';
 import { WorldComposer } from './composer/editor';
 import { GardenSound } from './sound/garden-sound';
@@ -141,7 +142,7 @@ element('app').innerHTML = `
             <summary>Seed <span id="seed-code"></span></summary>
             <form id="seed-form">
               <label for="seed">Load by seed</label>
-              <div><input id="seed" maxlength="48" autocomplete="off" spellcheck="false" required><button type="submit">Load</button></div>
+              <div><input id="seed" maxlength="160" autocomplete="off" spellcheck="false" required><button type="submit">Load</button></div>
             </form>
           </details>
         </div>
@@ -561,7 +562,7 @@ element<HTMLFormElement>('seed-form').addEventListener('submit', event => {
   const seed = seedInput.value.trim();
   if (!seed) return;
   element<HTMLDetailsElement>('seed-details').open = false;
-  select(fromGardenSeed(seed), true);
+  select(replayPersonalSpecimen(seed) ?? fromGardenSeed(seed), true);
   element('seed-details').querySelector('summary')?.focus();
 });
 click('membership', () => {

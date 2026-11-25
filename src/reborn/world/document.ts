@@ -1,3 +1,4 @@
+import type { PersonalLand } from '../environment/land-edits';
 import type { Environment } from '../environment/settings';
 import { defaultEnvironment } from '../environment/settings';
 import { clamp, random } from '../../core/random';
@@ -9,7 +10,7 @@ import { defaultLand, makeTerrain, worldBounds } from '../terrain';
 import type { LandSettings, Terrain } from '../terrain';
 import type { Landmark, PointOfInterest } from '../composition';
 
-export const objectKinds = ['arch', 'monolith', 'ring', 'stones', 'flora', 'kinetic'] as const;
+export const objectKinds = ['arch', 'monolith', 'ring', 'stones', 'flora', 'kinetic', 'hollow', 'fragment', 'aggregate', 'membrane', 'canopy', 'suspension'] as const;
 export const placeRoles = ['Neutral', 'Shelter', 'Curiosity', 'Gathering', 'Quiet'] as const;
 export const objectLimit = 40;
 export const placeLimit = 24;
@@ -58,9 +59,10 @@ export interface WorldDocument {
   residents: readonly WorldResident[];
   image: ImageSettings;
   environment?: Environment;
+  personalLand?: PersonalLand;
 }
 
-export const objectTitle = (kind: ObjectKind) => ({ arch: 'Arch', monolith: 'Monolith', ring: 'Ring', stones: 'Stones', flora: 'Flora', kinetic: 'Kinetic' })[kind];
+export const objectTitle = (kind: ObjectKind) => kind[0].toUpperCase() + kind.slice(1);
 
 export function landmarksFor(terrain: Terrain): WorldObject[] {
   return terrain.landmarks.map((item, index) => ({
@@ -90,7 +92,7 @@ export function newObject(kind: ObjectKind, seed: string, id: string = crypto.ra
     radius: scale * footprint(kind), finish: 'Original', appearance: 2 };
 }
 
-const footprint = (kind: ObjectKind) => ({ arch: 1.4, monolith: 1.27, ring: 1.32, stones: 1.67, flora: .95, kinetic: 1.28 })[kind];
+const footprint = (kind: ObjectKind) => ({ arch: 1.4, monolith: 1.27, ring: 1.32, stones: 1.67, flora: .95, kinetic: 1.28, hollow: 1.32, fragment: 1.65, aggregate: 1.64, membrane: 1.25, canopy: 2.05, suspension: 1.57 })[kind];
 
 export function transformObject(item: WorldObject, delta: Partial<Pick<WorldObject, 'x' | 'z' | 'yaw' | 'scale' | 'height' | 'finish' | 'seed' | 'appearance'>>): WorldObject {
   const next = { ...item, ...delta, edited: true as const };
@@ -125,7 +127,8 @@ export function layoutPoints(world: WorldDocument, terrain: Terrain) {
       || !place.linkedObjectId && Math.hypot(place.x - item.x, place.z - item.z) <= place.radius))) continue;
     const bearing = item.yaw + 1.2;
     const distance = item.radius + 2.25;
-    const role = item.kind === 'arch' ? 'Shelter' : item.kind === 'stones' ? 'Quiet' : 'Curiosity';
+    const role = ['arch', 'hollow', 'canopy'].includes(item.kind) ? 'Shelter'
+      : ['stones', 'aggregate'].includes(item.kind) ? 'Quiet' : 'Curiosity';
     const position: GroundPoint = [
       clamp(item.x + Math.cos(bearing) * distance, -25, 25), clamp(item.z + Math.sin(bearing) * distance, -25, 25),
     ];

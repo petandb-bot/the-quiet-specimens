@@ -1,3 +1,7 @@
+import { openWebGL2 } from './graphics/context';
+import { specimenProfile } from './specimens/profiles';
+import { emptyLand, waterHeight } from './environment/land-edits';
+import type { PersonalLand } from './environment/land-edits';
 import { activityFrame } from './composer/activity';
 import type { MakeActivity } from './composer/activity';
 import * as T from 'three';
@@ -40,6 +44,7 @@ export class GardenView {
   private arranger: ArrangeScene;
   private arranging?: MakeView;
   private makeCamera = new MakeCamera();
+  private landPreview = false;
   private makeActivity: MakeActivity = 'Slow';
   private editCameraReady = false;
   private activeWorld?: WorldDocument;
@@ -87,6 +92,7 @@ export class GardenView {
   private available = true;
   private lastTime = 0;
   private carry = 0;
+  private shadowsDirty = true;
   private press?: { x: number; y: number; id: number };
   private ray = new T.Raycaster();
   private cursor = new T.Vector2();
@@ -99,16 +105,15 @@ export class GardenView {
     private onFrame: () => void,
     private onError: (error: string) => void,
   ) {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance' });
-    if (!gl) throw new Error('This study needs a browser with WebGL 2.');
-    this.renderer = new T.WebGLRenderer({ canvas, context: gl, alpha: false, antialias: true });
+    const { canvas, context, antialias } = openWebGL2();
+    this.renderer = new T.WebGLRenderer({ canvas, context, alpha: false, antialias });
     this.renderer.setClearColor('#e7e3d6');
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.10;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = T.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
     canvas.setAttribute('aria-label', 'Interactive three-dimensional artificial life garden');
     this.host.append(canvas);
     this.arranger = new ArrangeScene(canvas, this.scene);
@@ -171,6 +176,8 @@ export class GardenView {
       this.environment.dispose();
       this.environment = this.reflections();
       this.scene.environment = this.environment.texture;
+      this.renderer.shadowMap.autoUpdate = false;
+      this.shadowsDirty = true;
       this.available = true;
       this.thumbnails.clear();
       this.onError('');
@@ -195,6 +202,7 @@ export class GardenView {
           let best = 2.45;
           let chosen: Resident | undefined;
           for (const resident of this.beings.values()) {
+            if (!resident.rig.root.visible) continue;
             const pose = resident.movement.pose;
             const distance = Math.hypot(pose.x - x, pose.z - z);
             if (distance < best) { chosen = resident; best = distance; }
@@ -233,13 +241,31 @@ export class GardenView {
     return result;
   }
 
+  private contactHeight(specimen: GardenSpecimen) {
+    const terrain = this.garden.terrain;
+    const water = this.activeWorld?.personalLand?.water;
+    return specimen.genome.plan === 'VESSEL' && water?.length
+      ? (x: number, z: number) => waterHeight(water, terrain.height, x, z) : terrain.height;
+  }
+
+  previewLand(edits: PersonalLand | undefined) {
+    this.shadowsDirty = true;
+    this.landPreview = edits !== undefined;
+    this.garden.setEdits(edits ?? this.activeWorld?.personalLand ?? emptyLand);
+    this.garden.objects.drag();
+    for (const item of this.beings.values()) this.pose(item);
+  }
+
   private resident(specimen: GardenSpecimen, anchor: GroundPoint, slot: number, solo = false): Resident {
     const rig = buildSpecimen(specimen.genome);
-    const radius = bodyPlans[specimen.genome.plan].radius(specimen.genome);
+    const profile = specimenProfile(specimen.size);
+    rig.root.scale.setScalar(profile.scale);
+    const radius = bodyPlans[specimen.genome.plan].radius(specimen.genome) * profile.scale;
     const terrain = this.garden.terrain;
     const movement = new GardenMotion(specimen.genome, anchor, solo ? [] : this.field?.obstacles ?? terrain.landmarks, radius,
-      solo ? undefined : this.field?.field ?? { bounds: worldBounds, height: terrain.height, slope: terrain.slope, points: terrain.points });
-    const resident = { specimen, rig, slot, movement, ground: { height: terrain.height, floor: 0 }, terrainY: terrain.height(movement.pose.x, movement.pose.z), renderedAt: 0 };
+      solo ? undefined : this.field?.field ?? { bounds: worldBounds, height: terrain.height, slope: terrain.slope, points: terrain.points }, profile);
+    const height = this.contactHeight(specimen);
+    const resident = { specimen, rig, slot, movement, ground: { height, floor: 0, scale: profile.scale }, terrainY: height(movement.pose.x, movement.pose.z), renderedAt: 0 };
     rig.root.userData.seed = specimen.genome.seed;
     this.pose(resident, solo);
     return resident;
@@ -279,16 +305,21 @@ export class GardenView {
     const slot = this.freeSlot();
     if(slot < 0) return false;
     const point = arrangement?.start ?? arrangement?.home ?? anchors[slot];
-    const safe = this.activeWorld ? safePosition(point, specimen, this.garden.terrain, this.activeWorld) : point;
-    if (!safe) return false;
-    const item = this.resident(specimen, safe, slot);
+    const world = this.activeWorld;
+    const safe = world ? safePosition(point, specimen, this.garden.terrain, world)
+      ?? (arrangement && safePosition(point, specimen, this.garden.terrain, world, true)) : point;
+    if (!safe && !arrangement) return false;
+    const item = this.resident(specimen, safe || point, slot);
+    item.rig.root.visible = Boolean(safe);
     if (arrangement?.home || arrangement?.preferred) this.updateResident(item, arrangement, false);
     this.site.add(item.rig.root);
+    this.shadowsDirty = true;
     this.beings.set(key, item);
     this.motions.push(item.movement);
     return true;
   }
 
+  get suspendedResidents() { return this.beings.size - this.motions.length; }
   get terrain() { return this.garden.terrain; }
   get canvas() { return this.renderer.domElement; }
   get canPlaceResidents() { return this.beings.size < worldLimit; }
@@ -305,12 +336,18 @@ export class GardenView {
   }
 
   applyWorld(world: WorldDocument) {
+    this.shadowsDirty = true;
     const previous = this.activeWorld;
-    const terrainChanged = previous && previous.land !== world.land;
+    const baseChanged = previous && previous.land !== world.land;
+    const edits = world.personalLand ?? emptyLand;
+    const oldEdits = previous?.personalLand ?? emptyLand;
+    const terrainChanged = baseChanged || oldEdits.relief !== edits.relief || oldEdits.water !== edits.water;
     this.activeWorld = world;
-    if (terrainChanged) this.setLand(world);
-    else if (previous?.environment?.surface !== world.environment?.surface) {
-      this.garden.setSurface(world.environment?.surface ?? defaultSurface);
+    this.landPreview = false;
+    if (baseChanged) this.setLand(world);
+    else {
+      if (previous?.environment?.surface !== world.environment?.surface) this.garden.setSurface(world.environment?.surface ?? defaultSurface);
+      this.garden.setEdits(edits);
     }
     if (!previous || terrainChanged || previous.objects !== world.objects || previous.places !== world.places) {
       const terrain = this.garden.terrain;
@@ -318,16 +355,18 @@ export class GardenView {
       terrain.landmarks = [...world.objects];
       terrain.points = this.field.points;
       this.garden.objects.update(world.objects);
+      if (terrainChanged) this.garden.objects.drag();
       for (const item of this.beings.values()) {
-        item.ground.height = terrain.height;
+        item.ground.height = this.contactHeight(item.specimen);
         item.movement.updateEnvironment(this.field.obstacles, this.field.field);
         if (!terrainChanged && previous?.objects === world.objects) continue;
         const { x, z } = item.movement.pose;
         const open = safePosition([x, z], item.specimen, terrain, world)
-          ?? terrain.anchors.map(anchor => safePosition(anchor, item.specimen, terrain, world)).find(Boolean);
+          ?? safePosition([x, z], item.specimen, terrain, world, true);
+        item.rig.root.visible = Boolean(open);
         if (open && (open[0] !== x || open[1] !== z)) item.movement.reposition(open);
         if (terrainChanged || open && (open[0] !== x || open[1] !== z)) {
-          item.terrainY = terrain.height(item.movement.pose.x, item.movement.pose.z);
+          item.terrainY = item.ground.height(item.movement.pose.x, item.movement.pose.z);
           this.pose(item);
         }
       }
@@ -343,6 +382,7 @@ export class GardenView {
         else if (resident !== last) this.updateResident(current, resident, resident.start !== last?.start);
       }
     }
+    this.motions = [...this.beings.values()].filter(item => item.rig.root.visible).map(item => item.movement);
     if (!previous || previous.image !== world.image) this.imageSettings = world.image;
     if (!previous || terrainChanged || previous.image !== world.image || previous.environment?.lighting !== world.environment?.lighting
       || previous.environment?.atmosphere !== world.environment?.atmosphere) this.applyImage();
@@ -406,7 +446,7 @@ export class GardenView {
   }
   arrangeDraft(item?: WorldObject) { this.garden.objects.draft(item); }
   hideArrangeDraft() { this.garden.objects.hideDraft(); }
-  arrangeDrag(item?: WorldObject) { this.garden.objects.drag(item); }
+  arrangeDrag(item?: WorldObject) { this.garden.objects.drag(item); this.shadowsDirty = true; }
   arrangeHit(x: number, y: number, objects: boolean) {
     return this.arranger.hit(x, y, this.arranging ? this.makeCamera.get(this.arranging) : this.worldCamera,
       this.garden.ground, objects ? this.garden.objects.groups() : []);
@@ -420,6 +460,7 @@ export class GardenView {
     const item = this.beings.get(seed);
     if (!item) return false;
     item.rig.dispose();
+    this.shadowsDirty = true;
     this.beings.delete(seed);
     this.thumbnails.delete(seed);
     this.motions = this.motions.filter(motion => motion !== item.movement);
@@ -449,8 +490,9 @@ export class GardenView {
       const item = this.resident(specimen, [0, 0], -1, true);
       this.plinth.add(item.rig.root);
       this.study = item;
-      this.detailCamera.position.set(3.26, 2.38, 4.8);
-      this.orbit.target.set(0, .93, 0);
+      const scale = specimenProfile(specimen.size).scale;
+      this.detailCamera.position.set(3.26, 2.38, 4.8).multiplyScalar(scale);
+      this.orbit.target.set(0, .93 * scale, 0);
       this.orbit.update();
     }
     if (observe && this.study) {
@@ -464,9 +506,10 @@ export class GardenView {
   setCamera(mode: CameraMode, seed = this.focusSeed) {
     if (mode === 'Soft Follow') {
       const resident = this.beings.get(seed);
-      if (resident) {
+      if (resident?.rig.root.visible) {
         const p = resident.movement.pose;
-        residentFrame(this.garden.terrain, [p.x, p.z], this.worldCamera, this.cameraTarget);
+        residentFrame(this.garden.terrain, [p.x, p.z], this.worldCamera, this.cameraTarget,
+          specimenProfile(resident.specimen.size).scale, resident.ground.height(p.x, p.z));
         this.followSeed = seed;
         this.follow.reset();
       } else mode = 'Fixed';
@@ -501,21 +544,24 @@ export class GardenView {
   residentThumbnail(item: GardenSpecimen) {
     const seed = item.genome.seed;
     if (!this.thumbnails.has(seed) && this.available) {
-      try { this.thumbnails.set(seed, thumbnail(this.renderer, item, this.environment.texture)); }
+      try { this.thumbnails.set(seed, thumbnail(this.renderer, item, this.environment.texture));
+        if (this.thumbnails.size > 24) this.thumbnails.delete(this.thumbnails.keys().next().value!); }
       catch { return ''; }
     }
     return this.thumbnails.get(seed) ?? '';
   }
 
   locate(seed: string) {
-    const pose = this.residentPose(seed);
-    if (!pose) return false;
+    const resident = this.beings.get(seed);
+    if (!resident?.rig.root.visible) return false;
+    const pose = resident.movement.pose;
     if (this.cameraMode !== 'Atlas') {
       this.setCamera('Fixed');
       const terrain = this.garden.terrain;
       const position = this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z).project(this.worldCamera);
       if (Math.abs(position.x) > .77 || Math.abs(position.y) > .72 || Math.abs(position.z) > 1) {
-        residentFrame(terrain, [pose.x, pose.z], this.worldCamera, this.cameraTarget);
+        residentFrame(terrain, [pose.x, pose.z], this.worldCamera, this.cameraTarget,
+          specimenProfile(resident.specimen.size).scale, resident.ground.height(pose.x, pose.z));
       }
     }
     this.marked = { seed, until: performance.now() + 5200 };
@@ -601,7 +647,7 @@ export class GardenView {
   }
 
   private setLand(world: WorldDocument) {
-    const next = buildLandscape(this.scene, world.land, world.environment?.surface, world.objects);
+    const next = buildLandscape(this.scene, world.land, world.environment?.surface, world.objects, world.personalLand);
     this.garden.dispose();
     this.garden = next;
     next.root.visible = this.mode === 'Observe';
@@ -624,6 +670,7 @@ export class GardenView {
   }
 
   private applyImage() {
+    this.shadowsDirty = true;
     const s = this.imageSettings, visible = this.mode === 'Observe';
     const strength = this.photo.loaded ? s.color : 0;
     const backdrop = visible && !this.isPlanView;
@@ -664,9 +711,10 @@ export class GardenView {
     }
     if (this.cameraMode === 'Observatory') this.showStation(this.observatory.advance(dt));
     if (this.cameraMode !== 'Soft Follow') return;
-    const pose = this.beings.get(this.followSeed)?.movement.pose;
-    if (!pose) { this.setCamera('Fixed'); return; }
-    this.subject.set(pose.x, terrain.height(pose.x, pose.z) + 1, pose.z);
+    const resident = this.beings.get(this.followSeed);
+    if (!resident?.rig.root.visible) { this.setCamera('Fixed'); return; }
+    const pose = resident.movement.pose;
+    this.subject.set(pose.x, resident.ground.height(pose.x, pose.z) + specimenProfile(resident.specimen.size).scale, pose.z);
     this.follow.advance(dt, this.worldCamera, this.cameraTarget, this.subject, terrain, this.stillCamera);
   }
   soundPresence(seed: string) {
@@ -711,7 +759,7 @@ export class GardenView {
     const delta = this.lastTime ? (ms - this.lastTime) / 1000 : 0;
     this.lastTime = ms;
     if (!this.available || document.hidden) return;
-    const activity = this.arranging ? this.makeActivity : this.paused ? 'Paused' : 'Live';
+    const activity = this.landPreview ? 'Paused' : this.arranging ? this.makeActivity : this.paused ? 'Paused' : 'Live';
     const { steps, remainder } = activityFrame(delta, this.carry, activity);
     this.carry = remainder;
     const observe = this.mode === 'Observe';
@@ -736,6 +784,8 @@ export class GardenView {
     if (observe && !this.arranging && (this.cameraMode === 'Atlas' || this.marked) && ms - this.markersAt > 130) this.updateMarkers(ms);
     this.onFrame();
     const camera = this.arranging ? this.makeCamera.get(this.arranging) : this.isPlanView ? this.arranger.plan : this.worldCamera;
+    this.renderer.shadowMap.needsUpdate = this.shadowsDirty || steps > 0;
+    this.shadowsDirty = false;
     this.renderer.render(this.scene, observe ? camera : this.detailCamera);
   };
 }

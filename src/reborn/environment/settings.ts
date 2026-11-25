@@ -1,3 +1,7 @@
+import { morphologyNames } from './morphology';
+import type { WorldMorphology } from './morphology';
+import { policies } from '../specimens/generator';
+import type { ResidentPolicy } from '../specimens/generator';
 import { hashText, hexSeed } from '../../core/random';
 
 export const worldStyles = ['Elsewhere', 'Pale Colony', 'Oxide Field', 'Shallow Memory', 'Uncertain Garden',
@@ -19,6 +23,8 @@ export type Environment = {
   atmosphere: Atmosphere;
   lighting: Lighting;
   structureDensity?: number;
+  residentPolicy?: ResidentPolicy;
+  morphology?: WorldMorphology;
 };
 
 export const defaultSurface: Surface = { low: '#899377', high: '#d6c6a6', accent: '#a4a58a', roughness: .94, metalness: 0 };
@@ -52,6 +58,8 @@ export function isEnvironment(value: unknown): value is Environment {
   if (!record(value) || !style(value.style) || !seed(value.seed)) return false;
   const { layers, atmosphere, lighting, surface } = value;
   return (value.structureDensity === undefined || number(value.structureDensity, 0, 1))
+    && (value.residentPolicy === undefined || (policies as readonly unknown[]).includes(value.residentPolicy))
+    && (value.morphology === undefined || (morphologyNames as readonly unknown[]).includes(value.morphology))
     && record(layers) && layerNames.every(layer => {
     const recipe = layers[layer];
     return record(recipe) && style(recipe.style) && seed(recipe.seed) && typeof recipe.locked === 'boolean';

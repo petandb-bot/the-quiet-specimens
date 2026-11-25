@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { random } from '../../core/random';
 import type { WorldObject } from '../world/document';
+import { buildPersonalFamily } from './families';
 import { artifactColors } from './appearance';
 
 type Height = (x: number, z: number) => number;
@@ -124,6 +125,7 @@ export function makeArtifact(object: WorldObject) {
       });
       break;
     }
+    default: buildPersonalFamily(group, object, materials);
   }
   const used = new Set<T.Material>();
   group.traverse(node => {

@@ -299,3 +299,31 @@ canvas[data-make-tool="camera"]:active { cursor: grabbing; }
 @media (max-width: 625px) {
   .make-activity select { padding-right: 22px; }
 }
+
+.personal-land { display: grid; gap: 7px; }
+.land-modes, [data-land-fields], .land-brush-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 5px; }
+.personal-land label { flex: 1 1 102px; }
+.personal-land input[type=color] { min-height: 34px; }
+@media (max-width: 625px) {
+  .personal-land button, .personal-land select { min-height: 44px; }
+}
+.make-shapes {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(78px, 1fr);
+  grid-template-columns: none;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+.placement-mode select { padding-right: 20px; }
+.colony-fields { flex: 1 0 100%; display: flex; align-items: start; flex-wrap: wrap; gap: 8px; }
+.colony-fields label { min-width: 96px; }
+@media (max-width: 625px) {
+  .make-shapes { grid-auto-columns: 62px; }
+  .make-brush-options { flex-wrap: wrap; }
+}
+
+.specimen-layout { display: flex; align-items: center; gap: .7rem; }
+.specimen-layout img { width: clamp(76px, 20vw, 112px); height: auto; border-radius: 4px; }
+.specimen-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; gap: .35rem .6rem; }
+.specimen-actions { flex-wrap: wrap; margin-top: .35rem; }
+#specimen-source, #specimen-replay { font-size: .78rem; overflow-wrap: anywhere; }

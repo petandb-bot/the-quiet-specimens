@@ -6,7 +6,7 @@ import { gestures } from './motion';
 import type { MotionPose } from './motion';
 
 type Surfaces = ReturnType<typeof specimenMaterials>;
-export interface RigGround { height: (x: number, z: number) => number; floor: number }
+export interface RigGround { height: (x: number, z: number) => number; floor: number; scale?: number }
 type Rig = (pose: MotionPose, ground?: RigGround) => void;
 type Builder = (root: T.Group, genome: GardenGenome, materials: Surfaces) => Rig;
 
@@ -105,7 +105,7 @@ const hinge: Builder = (root, g, m) => {
         foot.localToWorld(toe.set(0, -.11, 0));
         correction = Math.max(correction, ground.height(toe.x, toe.z) - toe.y);
       }
-      frame.position.y += Math.min(.48, correction);
+      frame.position.y += Math.min(.48, correction / (ground.scale ?? 1));
     }
   };
 };
@@ -184,7 +184,7 @@ const vessel: Builder = (root, g, m) => {
 };
 
 const relay: Builder = (root, g, m) => {
-  const rng = random(g.seed + '/segment');
+  const rng = random((g.shapeSeed ?? g.seed) + '/segment');
   const nodes: T.Group[] = [];
   const links: T.Mesh[] = [];
   const spacing = .31 * g.proportion;
@@ -206,7 +206,7 @@ const relay: Builder = (root, g, m) => {
   }
   const axis = v(0, 1, 0), boundary = v(0, 0, 0);
   return (p, ground) => {
-    const cos = Math.cos(p.yaw), sin = Math.sin(p.yaw);
+    const cos = Math.cos(p.yaw), sin = Math.sin(p.yaw), scale = ground?.scale ?? 1;
     const coil = (p.gesture === 'Coil' ? p.action : 0) * .68 + p.preparation * .38 + p.relax * .47 + p.greet * .14;
     const stretch = p.gesture === 'Stretch' ? p.action * .46 : 0;
     const ripple = p.gesture === 'Ripple' ? p.action * .52 : 0;
@@ -216,7 +216,7 @@ const relay: Builder = (root, g, m) => {
       const delay = p.stride - i * .88;
       const bend = (g.curvature - .48) * .51 + coil * (i / nodes.length * 1.75) + .24 * Math.sin(delay) * Math.min(1, p.speed * 2);
       if (i) { x -= step * (1 + stretch) * Math.cos(bend); z += spacing * Math.sin(bend); }
-      const land = ground ? ground.height(p.x + x * cos + z * sin, p.z - x * sin + z * cos) - ground.floor : 0;
+      const land = ground ? (ground.height(p.x + scale * (x * cos + z * sin), p.z + scale * (-x * sin + z * cos)) - ground.floor) / scale : 0;
       node.position.set(x, land + .135 + .055 * Math.sin(delay) * Math.min(1, p.speed * 1.6) + .15 * ripple * Math.sin(p.time * 15 - i * 1.25), z);
       node.rotation.y = bend;
       node.rotation.x = .14 * Math.sin(delay * 1.13) * Math.min(1, p.speed + ripple) + p.recovery * .05;
