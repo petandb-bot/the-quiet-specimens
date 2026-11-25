@@ -155,9 +155,9 @@ export class LandTool {
     if (ground) this.stroke?.add(ground);
     this.hover(point);
   }
-  end(point: Cursor) {
+  end(point: Cursor, moved: boolean) {
     const ground = this.hit(point);
-    if (this.mode === 'Water' && this.creating && ground && this.value.water.length < waterLimit) {
+    if (this.mode === 'Water' && this.creating && !moved && ground && this.value.water.length < waterLimit) {
       const region: WaterRegion = { id: crypto.randomUUID(), x: ground[0], z: ground[1], radius: this.radius,
         level: clamp(this.garden.terrain.height(...ground) + this.input('water-level').valueAsNumber, -12, 12),
         color: this.input('water-color').value, clarity: this.input('water-clarity').valueAsNumber };

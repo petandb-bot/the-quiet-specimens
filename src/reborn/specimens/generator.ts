@@ -24,16 +24,19 @@ const tones = {
 export function personalSpecimen(recipe: SpecimenRecipe): GardenSpecimen {
   const seed = ['PL1', encodeURIComponent(recipe.seed), bodies.indexOf(recipe.body), materials.indexOf(recipe.material),
     sizes.indexOf(recipe.size), temperaments.indexOf(recipe.temperament)].join(':');
-  const rng = random('personal/1/' + seed);
+  const shapeSeed = 'PLG1:' + recipe.seed + ':' + bodies.indexOf(recipe.body);
+  const rng = random('personal/temperament/1/' + recipe.seed + '/' + recipe.temperament);
   const [curiosity, caution, patience, gait] = tones[recipe.temperament];
   const spread = recipe.temperament === 'Unpredictable' ? .26 : .12;
   const sample = (amount: number) => clamp(amount + rng.range(-spread, spread));
-  const specimen = gardenSpecimen(seed, undefined, {
+  const specimen = gardenSpecimen(shapeSeed, undefined, {
     ...(recipe.body === 'Any' ? {} : { plan: recipe.body }),
-    ...(recipe.material === 'Any' ? {} : { material: recipe.material }),
     curiosity: sample(curiosity), caution: sample(caution), patience: sample(patience),
     gait: clamp(gait + rng.range(-spread, spread), .45, 1.4),
   });
+  specimen.genome.seed = seed;
+  specimen.genome.shapeSeed = shapeSeed;
+  if (recipe.material !== 'Any') specimen.genome.material = recipe.material;
   const profile = specimenProfile(recipe.size);
   specimen.genome.sound.interval *= profile.interval;
   specimen.genome.sound.register /= Math.sqrt(profile.scale);
@@ -42,7 +45,8 @@ export function personalSpecimen(recipe: SpecimenRecipe): GardenSpecimen {
 
 function materialVariant(source: GardenSpecimen, material: GardenMaterial): GardenSpecimen {
   const shapeSeed = source.genome.shapeSeed ?? source.genome.seed;
-  const seed = 'PM1:' + gardenMaterials.indexOf(material) + ':' + shapeSeed;
+  const basis = /^PM1:[0-5]:(.+)$/.exec(source.genome.seed)?.[1] ?? source.genome.seed;
+  const seed = 'PM1:' + gardenMaterials.indexOf(material) + ':' + basis;
   return { ...source, recipe: source.recipe && { ...source.recipe, material },
     genome: { ...source.genome, seed, shapeSeed, material } };
 }

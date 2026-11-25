@@ -174,6 +174,11 @@ it('supports Reference, Mixed and Wild rosters with reproducible genomes, distin
     }
   }
   const source = personalSpecimen({ seed: 'study-14', body: 'HINGE', material: 'CERAMIC', size: 'Small', temperament: 'Quiet' });
+  const alternate = personalSpecimen({ ...source.recipe!, material: 'METALLIC', size: 'Large', temperament: 'Restless' });
+  expect(alternate.genome.proportion).toBe(source.genome.proportion);
+  expect(alternate.genome.palette).toEqual(source.genome.palette);
+  expect(alternate.genome.gait).toBeGreaterThan(source.genome.gait);
+  expect(alternate.genome.sound.interval).toBeGreaterThan(source.genome.sound.interval);
   const mutation = mutateSpecimen(source, 'Material', 'study-15');
   expect(mutation.genome.material).not.toBe(source.genome.material);
   expect(mutation.genome.plan).toBe('HINGE');

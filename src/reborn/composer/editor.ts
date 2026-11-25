@@ -483,7 +483,9 @@ export class WorldComposer {
     this.click('compose-life-follow', () => this.onInspect(this.specimen, true));
     this.click('compose-life-remove', () => this.toggleResident(this.specimen));
     document.addEventListener('keydown', event => {
-      if (event.defaultPrevented || !this.active || (event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable=true]'))) return;
+      if (event.defaultPrevented || !this.active) return;
+      const form = event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable=true]');
+      if (form && (event.key !== 'Escape' || !this.panel.contains(form))) return;
       if (event.key === 'Escape') {
         if (!this.node('compose-help-panel').hidden) this.showHelp(false);
         else if (this.tab === 'land' && this.landTool.armed) this.landTool.switch('Shape');
@@ -561,7 +563,7 @@ export class WorldComposer {
   }
 
   private endEdit(point: Cursor, moved: boolean) {
-    if (this.usingLand) { this.landTool.end(point); return; }
+    if (this.usingLand) { this.landTool.end(point, moved); return; }
     const drag = this.drag;
     this.cancelEdit();
     if (moved && !drag) return;
