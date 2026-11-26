@@ -27,11 +27,11 @@ export function landscapeFrame(terrain: Terrain, portrait: boolean, position: Ve
   position.set(portrait ? 12 : 15, terrain.height(10, 24) + (portrait ? 11.8 : 9.5), portrait ? 30 : 25);
 }
 
-export function residentFrame(terrain: Terrain, point: GroundPoint, camera: PerspectiveCamera, target: Vector3) {
+export function residentFrame(terrain: Terrain, point: GroundPoint, camera: PerspectiveCamera, target: Vector3, scale = 1, floor?: number) {
   const [x, z] = point;
-  const h = terrain.height(x, z);
-  target.set(x, h + 1.08, z);
-  camera.position.set(x + 6.2, h + 4.5, z + 10.8);
+  const h = floor ?? terrain.height(x, z);
+  target.set(x, h + 1.08 * scale, z);
+  camera.position.set(x + 6.2 * scale, h + 4.5 * scale, z + 10.8 * scale);
   const rise = keptAboveLand(camera.position, terrain) - camera.position.y;
   camera.position.y += rise;
   target.y += rise;

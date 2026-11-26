@@ -10,21 +10,22 @@
 | B4.1 · Place Composer | Versioned world documents, object and place editing, resident placement, and undo and redo | Merged in PR #2 |
 | B4.1.1 · Still & Alive | Reliable audio, still and gentle cameras, World/Solo, Atlas and resident observation | Merged in PR #3 |
 | B4.1.2 · Playful Composer | Observe and Make, direct placement, contextual tools, touch navigation, and one local working draft | Published |
-| B4.2 · World Playground | Eight world styles, layer locks, direct manipulation, and resident activity in Make | Review branch |
-| B4.2.1 · Personal Land | Terrain brushes, surface paint, water, shape families, and clusters | Next development unit |
+| B4.2 · World Playground | Eight world styles, layer locks, direct manipulation, and resident activity in Make | Published |
+| B4.2.1 · Personal Land | Terrain brushes, surface paint, water, six new families, colonies, varied residents and morphology studies | In review |
+| B4.2.2 · Possible Worlds | Independent style and spatial morphology, islands, enclosures, and studies of nonplanar habitats | Planned |
+| B4.2.3 · Other Forms of Life | Assembly, Root and Orbit body-plan studies | Planned |
 | B4.3 · World Collection | Multiple worlds, duplication, JSON, camera bookmarks, and high-resolution stills | Planned |
 | B5.1 · Sound Ecology | Bounded multi-specimen responses, environmental resonance, and long-running audio | Planned |
 | B5.2 · Living Theatre | Resident encounters, gestures, and the small events between them | Planned |
 | B5.3 · Environmental Time | Slowly varying light, atmosphere, and environmental influence on resident activity | Planned |
 | B6 · Discovery | Generate specimens, structures, and environments from photos or choices | Planned |
-| B7 · New Life | Study additional body plans and forms of motion | Planned |
 | B8 · Observatory | Saved views, slow camera tours, and media export | Planned |
 | B9 · Living Memory | Long-term visits, traces, and environmental change | Planned |
 
-Assembly, Fold, Orbit, and Root are future body-plan studies. The earlier aquarium, Specimen Lab and archive remain accessible at `/legacy/`.
+Fold, Cloud and Film remain candidates for later body-plan studies. Living Environment includes wind, gravity, light, moisture, resonance and persistent traces. The earlier aquarium, Specimen Lab and archive remain accessible at `/legacy/`.
 
 [World Refinement](ELSEWHERE.md) · [Living Territories](LIVING_TERRITORIES.md) · [Verification](VERIFICATION.md)
 
 [World Composer](WORLD_COMPOSER.md) · [World Archive](WORLD_ARCHIVE.md)
 
-[World Styles](WORLD_STYLES.md) · [World Generator](WORLD_GENERATOR.md)
+[Personal Land](PERSONAL_LAND.md) · [World Styles](WORLD_STYLES.md) · [World Generator](WORLD_GENERATOR.md)

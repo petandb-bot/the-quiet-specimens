@@ -1,3 +1,6 @@
+import { temperaments, validSpecimenSeed } from '../specimens/generator';
+import { sizes } from '../specimens/profiles';
+import { isPersonalLand } from '../environment/land-edits';
 import { isEnvironment } from '../environment/settings';
 import { finishes, objectKinds, objectLimit, placeLimit, placeRoles } from './document';
 import type { WorldDocument } from './document';
@@ -20,6 +23,7 @@ export function isWorldDocument(value: unknown): value is WorldDocument {
   if (!record(value) || value.schemaVersion !== 1 || value.generatorVersion !== 1 || !text(value.id)
     || !text(value.name) || !dateRecord(value)) return false;
   if (value.environment !== undefined && !isEnvironment(value.environment)) return false;
+  if (value.personalLand !== undefined && !isPersonalLand(value.personalLand)) return false;
   const { land, image, objects, places, residents, suppressed } = value;
   if (!record(land) || !text(land.seed) || !member(land.kind, terrainKinds)
     || ![land.elevation, land.roughness, land.openness, land.density].every(unit)) return false;
@@ -54,8 +58,13 @@ export function isWorldDocument(value: unknown): value is WorldDocument {
   for (const item of residents) {
     if (!record(item) || !point(item.home) || !point(item.preferred) || !point(item.start)
       || !record(item.specimen) || !text(item.specimen.name) || !record(item.specimen.genome)) return false;
+    const { size, recipe } = item.specimen;
+    if (size !== undefined && !member(size, sizes)) return false;
+    if (recipe !== undefined && (!record(recipe) || !text(recipe.seed) || !validSpecimenSeed(recipe.seed)
+      || !member(recipe.body, ['Any', ...gardenPlans]) || !member(recipe.material, ['Any', ...gardenMaterials])
+      || !member(recipe.temperament, temperaments) || !member(recipe.size, sizes) || recipe.size !== size)) return false;
     const g = item.specimen.genome;
-    if (!text(g.seed) || seeds.has(g.seed) || !member(g.plan, gardenPlans) || !member(g.material, gardenMaterials)
+    if (!text(g.seed) || (g.shapeSeed !== undefined && !text(g.shapeSeed)) || seeds.has(g.seed) || !member(g.plan, gardenPlans) || !member(g.material, gardenMaterials)
       || !Array.isArray(g.palette) || g.palette.length !== 3 || !g.palette.every(color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color))
       || !within(g.modules, 3, 8) || !within(g.proportion, .68, 1.35) || !within(g.gait, .45, 1.4)
       || ![g.curvature, g.asymmetry, g.aperture, g.curiosity, g.caution, g.patience].every(unit) || !record(g.sound)) return false;

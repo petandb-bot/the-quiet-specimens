@@ -1,3 +1,6 @@
+import { specimenMarkup } from './specimen-panel';
+import { colonyPatterns } from '../objects/colonies';
+import { landMarkup } from './land-tool';
 import { finishes, objectKinds, objectTitle } from '../world/document';
 import { finishColors } from '../objects/appearance';
 import { objectSizes } from './palette';
@@ -43,7 +46,7 @@ export const editorMarkup = `
     </div>
     <div class="make-palette" id="compose-workspace">
       <nav class="compose-tabs" aria-label="Make workspace">
-        <button type="button" id="world-settings" aria-controls="land-panel" aria-expanded="false">Land</button>
+        <button type="button" data-compose-tab="land">Land</button>
         <button type="button" data-compose-tab="objects">Objects</button>
         <button type="button" data-compose-tab="residents">Life</button>
         <button type="button" id="image-settings" aria-controls="image-panel" aria-expanded="false">Atmosphere</button>
@@ -53,6 +56,8 @@ export const editorMarkup = `
       <div class="make-life-nav" id="compose-life-nav" hidden>
         <div class="make-group" role="group" aria-label="Life tools">
           <button type="button" data-life-tab="residents">Residents</button>
+          <button type="button" data-life-tab="discover">Discover</button>
+          <button type="button" data-life-tab="specimens">Generate</button>
           <button type="button" data-life-tab="places">Places</button>
         </div>
       </div>
@@ -62,6 +67,8 @@ export const editorMarkup = `
       </section>
       <section class="make-brush" id="compose-brush" aria-label="Placement brush" hidden>
         <div class="make-brush-options">
+          <label class="placement-mode"><span class="visually-hidden">Placement mode</span>
+            <select id="placement-mode"><option>Stamp</option><option>Scatter</option><option>Colony</option></select></label>
           ${sizeButtons('brush')}
           <label class="make-brush-finish"><span class="visually-hidden">Placement finish</span>
             <i id="compose-brush-color" aria-hidden="true"></i>
@@ -76,8 +83,16 @@ export const editorMarkup = `
           <button type="button" id="compose-edit-last" aria-controls="compose-object-edit" hidden>Edit last</button>
           <button type="button" id="compose-done">Done</button>
         </div>
+        <div class="colony-fields" id="colony-fields" hidden>
+          <label id="colony-pattern-label">Pattern<select id="colony-pattern">${colonyPatterns.map(name=>`<option>${name}</option>`).join('')}</select></label>
+          <label>Area<input id="colony-area" type="range" min="3" max="18" step=".5" value="11"></label>
+          <details><summary>Advanced spacing</summary><label>Density<input id="colony-density" type="range" min="0" max="1" step=".05" value=".55"></label>
+            <label>Variation<input id="colony-variation" type="range" min="0" max="1" step=".05" value=".8"></label></details>
+        </div>
       </section>
       ${placeAndResidentMarkup()}
+      ${specimenMarkup}
+      ${landMarkup}
       ${generatorMarkup}
     </div>
     <div class="make-status"><p id="compose-message" role="status"></p><span id="compose-recovery" role="status">Draft loading…</span></div>

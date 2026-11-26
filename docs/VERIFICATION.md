@@ -214,3 +214,53 @@ At 680 × 560 in Paused Make, Chromium ran four cycles of Abandoned Geometry, a 
 ### Remaining verification and next phase
 
 Physical iPhone Safari, Android devices, sustained rendering on a hardware GPU, and a formal usability study remain pending. The short-session creation goals are design targets. For B4.2.1, test the existing selection, touch gestures and generation on those devices first, then use the current terrain layer and safe placement rules as the basis for terrain brushes and surface paint.
+
+## B4.2.1 Personal Land
+
+Development starts from main at `6653e8e`. The baseline clean install, 68 tests, TypeScript, production build and distribution check passed. The branch incorporates the English README from PR #9. The Personal Land suite adds eight cases covering optional schema 1 fields and working drafts, bounded brush strokes, ray/height/slope and shoreline agreement, locks, family and colony variation, roster replay, scaled contact and bounded WebGL startup. The final clean install, all 76 tests, the production build and `node scripts/check-dist.mjs` passed. The published-entry check covers the garden, Legacy and the audio-check page.
+
+### Production WebGL
+
+Chromium 156.0.8078.79 used ANGLE/SwiftShader and the production project path `/the-quiet-specimens/`. The desktop checks exercised Raise, Lower, Smooth and Flatten, stroke cancellation, material painting and erasing, water placement and clarity, atomic colony Undo/Redo, direct dragging, new resident previews and replacement, Paused / Slow / Live, camera pan and zoom, and terrain, surface and resident locks. The desktop tested the JPEG as Atmosphere and Backdrop and restored it with the scene from IndexedDB after reload. A second tab recovered the authored draft and then rejected its own stale write after the first tab saved again. The photo composite uses the same NASA Rocknest JPEG credited above.
+
+World audio and Audition both produced a signal on the Web Audio output. Ending Audition retained the previous Sound on state. Inspect and Action rendered, and the Legacy project route opened with a live WebGL 2 canvas.
+
+The 390 × 844 Chromium touch run sculpted with a single finger, pinched without saving a second stroke, stamped a Canopy, undid and redid the stamp, and previewed and added a Small VESSEL. It stayed within the viewport. It used emulated touch input.
+
+A separate context-loss pass used Chromium's `WEBGL_lose_context` on a world with authored relief, Glass paint and a pool. The app reported the loss, drew again after restoration and retained the exact draft. Draw calls advanced from 2,056 at loss to 2,482 after restoration, with no reported script or shader errors in that pass.
+
+[Desktop Sculpt](screenshots/personal-land/desktop-sculpt.jpg) · [Mobile Life Generator](screenshots/personal-land/mobile-life-generator.jpg) · [Photo and Personal Land](screenshots/personal-land/photo-and-personal-land.jpg)
+
+### Rendered worlds
+
+These are production WebGL captures from worlds assembled through Make. The studies use different authored details, densities, lighting and camera positions.
+
+| Study | Composition | Capture |
+| --- | --- | --- |
+| Expanse | Two Small residents move through a pale clearing with a few widely spaced structures. | [Expanse](screenshots/personal-land/01-expanse.jpg) |
+| Basin | Hollow Land with a quiet pool, muted water and a mineral shell near its edge. | [Basin](screenshots/personal-land/02-basin.jpg) |
+| Mineral surfaces | A band of painted glass, mineral and oxide follows the low ground between terraced ridges. | [Mineral surfaces](screenshots/personal-land/03-mineral-surfaces.jpg) |
+| Thicket | Branching shades and irregular understory leave openings for the residents. | [Thicket](screenshots/personal-land/04-thicket.jpg) |
+| Different times | Small and Large residents share an open territory. Soft Follow frames the Large VESSEL. | [Different times](screenshots/personal-land/05-different-times.jpg) |
+| Chalk garden | An open ring of architectural fragments in white chalk. | [Chalk garden](screenshots/personal-land/06-chalk-garden.jpg) |
+| Dark membranes | Translucent forms cluster against mineral ground and narrow terraces. | [Dark membranes](screenshots/personal-land/07-dark-membranes.jpg) |
+| Personal Elsewhere | The original roster and landmarks share the terrain with local relief, Dust, a pool and a Hollow. | [Personal Elsewhere](screenshots/personal-land/08-elsewhere-edited.jpg) |
+
+The sparse composition keeps the two Small residents readable with generous negative space. The canopy stand gains depth from overlapping branches and cast shadows. The painted mineral band follows the slope and stays soft at its edges. Light water has low contrast on the palest profiles. Darker water or a higher viewpoint makes the shoreline easier to read. On narrow viewports, **Hide tools** makes the foreground reachable while keeping the current brush active.
+
+### Short-session resource measurements
+
+At 720 × 560 in Paused Make, three cycles each changed the world style, rerolled the world, scattered a procedural family, sculpted, painted and added a Large RELAY. Each operation was undone to the same Elsewhere layout before measuring. Live WebGL allocations were counted from matching create/delete calls. JavaScript heap was sampled after requesting a collection.
+
+| Sample | GL buffers | Textures | Framebuffers | Renderbuffers | Programs | JS heap |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 358 | 6 | 5 | 2 | 14 | 13.45 MB |
+| Cycle 1 | 348 | 6 | 5 | 2 | 10 | 14.34 MB |
+| Cycle 2 | 348 | 6 | 5 | 2 | 10 | 14.58 MB |
+| Cycle 3 | 348 | 6 | 5 | 2 | 10 | 14.72 MB |
+
+The GL counts stabilized across all three repeated cycles. The heap rose by 1.27 MB from baseline and by 0.38 MB across the three post-cycle samples. This short run leaves steady-state memory under longer play open. Twelve unthrottled animation-frame intervals had a median of 1.33 s and a 90th percentile of 2.83 s. SwiftShader and the concurrent browser checks shared two vCPUs during the timing sample.
+
+### Verification limits
+
+Physical iPhone Safari, Android and hardware-GPU throughput remain unverified. No formal usability study was conducted. The gallery documents possible outcomes and the checks exercise specific creation flows.

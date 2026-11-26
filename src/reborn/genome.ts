@@ -1,3 +1,5 @@
+import type { SpecimenRecipe } from './specimens/generator';
+import type { SpecimenSize } from './specimens/profiles';
 import type { Sonotype } from '../core/model';
 import { clamp, freshSeed, random } from '../core/random';
 
@@ -10,6 +12,7 @@ type Palette = readonly [shell: string, accent: string, joint: string];
 
 export interface GardenGenome {
   seed: string;
+  shapeSeed?: string;
   plan: GardenPlan;
   material: GardenMaterial;
   palette: Palette;
@@ -27,6 +30,8 @@ export interface GardenGenome {
 export interface GardenSpecimen {
   name: string;
   genome: GardenGenome;
+  size?: SpecimenSize;
+  recipe?: SpecimenRecipe;
 }
 
 const palettes: Palette[] = [

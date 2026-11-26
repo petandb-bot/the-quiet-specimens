@@ -1,5 +1,9 @@
+import { morphologyNames } from '../environment/morphology';
+import type { WorldMorphology } from '../environment/morphology';
+import { policies } from '../specimens/generator';
+import type { ResidentPolicy } from '../specimens/generator';
 import { freshSeed } from '../../core/random';
-import { environmentOf, generateWorld, lockLayer, randomizeLayer, setStructureDensity } from '../environment/generator';
+import { environmentOf, generateWorld, lockLayer, randomizeLayer, setMorphology, setStructureDensity } from '../environment/generator';
 import { layerNames, worldStyles } from '../environment/settings';
 import type { Layer, WorldStyle } from '../environment/settings';
 import { defaultLand } from '../terrain';
@@ -35,6 +39,10 @@ export const generatorMarkup = `
       </div>
     </details>
     <details class="world-seed-details"><summary>Advanced</summary>
+      <div class="compose-line">
+        <label>Morphology study<select id="world-morphology">${morphologyNames.map(name => `<option>${name}</option>`).join('')}</select></label>
+        <label>Resident generation<select id="world-resident-policy">${policies.map(policy => `<option>${policy}</option>`).join('')}</select></label>
+      </div>
       <label>Structure density<input id="world-structure-density" type="range" min="0" max="1" step=".025"></label>
       <form id="world-seed-form" class="compose-line"><label>World seed<input id="world-seed" maxlength="48" required spellcheck="false"></label>
         <button type="submit">Generate</button></form>
@@ -56,6 +64,14 @@ export class GeneratorPanel {
     panel.querySelector<HTMLInputElement>('#world-structure-density')!.addEventListener('change', event => {
       this.commit(setStructureDensity(this.world(), (event.target as HTMLInputElement).valueAsNumber));
     });
+    panel.querySelector<HTMLSelectElement>('#world-morphology')!.addEventListener('change', event => {
+      this.commit(setMorphology(this.world(), (event.target as HTMLSelectElement).value as WorldMorphology));
+    });
+    panel.querySelector<HTMLSelectElement>('#world-resident-policy')!.addEventListener('change', event => {
+      const world = this.world();
+      const residentPolicy = (event.target as HTMLSelectElement).value as ResidentPolicy;
+      this.commit({ ...world, environment: { ...environmentOf(world), residentPolicy } });
+    });
     panel.querySelector('#world-seed-form')!.addEventListener('submit', event => {
       event.preventDefault();
       this.generate(this.seed.value.trim() || defaultLand.seed);
@@ -76,6 +92,10 @@ export class GeneratorPanel {
     const environment = environmentOf(this.world());
     this.style.value = environment.style;
     this.seed.value = environment.seed;
+    this.panel.querySelector<HTMLSelectElement>('#world-morphology')!.value = environment.morphology ?? 'Style default';
+    const policy = this.panel.querySelector<HTMLSelectElement>('#world-resident-policy')!;
+    policy.value = environment.residentPolicy ?? 'Mixed';
+    policy.disabled = environment.layers.residents.locked;
     if (!this.preview.closest('[hidden]') && this.preview.dataset.style !== environment.style) {
       this.preview.dataset.style = environment.style;
       this.preview.src = './world-styles/' + styleSlug(environment.style) + '.jpg';

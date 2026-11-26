@@ -1,76 +1,41 @@
-# The Quiet Specimens — Reborn
+# The Quiet Specimens
 
-**Elsewhere · B4.2 World Playground**
+**Elsewhere · B4.2.1 Personal Land**
 
-生きているはずのない物体が、自分の意思で動いているように見える地平線まで続く風景です。関節で踏ん張る **HINGE**、殻の中に別の運動を持つ **VESSEL**、動きが節へ順番に伝わる **RELAY** に、3体ずつの参照個体を用意しました。
+A playground for living worlds. Build strange landscapes, arrange sculptural objects, and observe artificial life moving, interacting, and making sound.
 
-以前の Phase A の画面は [こちら](public/downloads/reborn-artificial-garden.jpg)。Elsewhere の実ブラウザでの検証状況は [Verification](docs/VERIFICATION.md) に記録しています。
+[Play in your browser](https://petandb-bot.github.io/the-quiet-specimens/)
 
-## 起動
+## Play
 
-Node.js 22.12 以上と npm を使用します。
+- **Make → Generate:** explore eight world styles, reroll individual layers, and lock the parts you want to keep.
+- **Land / Objects:** brush relief and surface finishes onto the land, create pools, and place individual forms or colonies.
+- **Life:** discover reference specimens or generate new forms with different sizes and temperaments. Give them places to explore.
+- **Atmosphere:** adjust light, sky, fog, and surface colors, or use a local photograph.
+- **Observe:** watch residents with fixed or gentle follow cameras. Use Focus to hide the interface.
+- **Sound:** enable generative world audio or audition individual specimens.
+
+Paused, Slow, and Live control resident activity while editing. One working draft, including its photograph, is saved locally in the browser. Use Undo / Redo to revise edits.
+
+Three procedural body plans are available: HINGE, VESSEL, and RELAY. The earlier aquarium and specimen laboratory remain available under [Legacy](https://petandb-bot.github.io/the-quiet-specimens/legacy/).
+
+## Development
+
+Requires Node.js 22.12+ and a WebGL 2-capable browser.
 
 ```sh
 npm ci
 npm run dev
 npm test
 npm run build
+node scripts/check-dist.mjs
+npm run preview
 ```
 
-開発時は Vite が表示する URL を開きます。静的ホスティングには `dist/` を配信します。ビルド済みの確認には `npm run preview` を使います。
+Built with TypeScript, Three.js, Vite, and Web Audio. GitHub Actions tests and deploys the production `dist/` bundle to GitHub Pages on updates to `main`.
 
-## 鑑賞と音響
+If WebGL 2 fails to initialize, check browser graphics acceleration and GPU support.
 
-起動時は **Fixed** の静止した視点です。**Residents** から個体の姿と行動を見て、**Locate** で位置を探したり、**Soft Follow** でゆっくり追ったりできます。**Camera → Observatory** は4つの定点を手動で切り替え、必要なときだけ自動巡回できます。
+## Documentation
 
-**Sound off** を押して音を始めます。**More → Sound mix** で世界の複数個体を聴く **World**、選択個体だけの **Solo**、音量と密度を切り替えられます。**Audition** は選択個体の試聴です。**Focus** で操作欄を隠しても音楽は続きます。
-
-[鑑賞ガイド](docs/OBSERVATION.md) · [カメラ](docs/CAMERA_COMFORT.md) · [音響](docs/AUDIO_ECOLOGY.md)
-
-## 世界を作る
-
-**Make → Generate** から8種類の世界を選べます。**Randomize world** で別の構図を試し、**Layers** で地形、地表、構造物、空と霧、照明、住民の好きな部分を固定できます。**Advanced** では World Seed を入力して再生成できます。
-
-**Objects** で形とサイズを選んで地面に置き、**Done** で配置を終えます。置いた物体はクリックやタップで選択し、そのままドラッグできます。近くの編集欄から大きさや仕上げを調整でき、**Mutate** で形を変えられます。**Land** は起伏や余白、**Atmosphere** は空・霧・光と写真、**Life** は住民と場所を編集します。
-
-Make 中の住民は **Paused / Slow / Live** で切り替えられます。設定と写真は作業用下書き１件に自動保存されます。空間や配置を直したあと、**Observe** に戻って住民の動きや音を眺められます。
-
-[World Styles](docs/WORLD_STYLES.md) · [World Generator](docs/WORLD_GENERATOR.md) · [World Composer](docs/WORLD_COMPOSER.md)
-
-## 操作
-
-- **Residents → Discover** を開くと、個体の操作と行動を確認できます。**Observe** では自分の生活圏を巡る個体を眺めます。個体をクリックまたはタップすると、その個体が反応します。
-- **Reference specimens** から9体を選べます。**New specimen** で新規生成し、**Seed** を開いて同じシードを入力すると個体を再生成できます。
-- **Inspect** は回転・拡大、**Action** は身構えや回復を含むアクションの確認です。**Add to world** と **Remove from world** で最大9体を入れ替えられます。
-- **Sound** は World / Solo の再生を切り替え、**Audition** は選択した1体を短時間試聴します。**Focus** は鑑賞用に操作欄を隠します。**Pause** は動きを止めます。
-- **Legacy** は同じ配信元の `/legacy/` にある従来版です。写真からの生成、コレクション、JSON 入出力、既存の IndexedDB 保存にアクセスできます。
-
-## 構成
-
-| パス | 内容 |
-| --- | --- |
-| `src/reborn` | 庭園、体型レジストリ、材質、固定刻みの運動、鑑賞 UI |
-| `src/legacy` | アクアリウムと旧研究室 |
-| `src/audio` | 両エントリーが使う Web Audio ボイスと発音スケジューラー |
-| `src/core`, `src/genesis`, `src/archive` | シード、従来の生成・画像解析、保存スキーマ |
-
-Elsewhere は WebGL 2 を使います。作品の持ち出しや複数ワールドの管理は [ロードマップ](docs/ROADMAP.md) に記載しています。
-
-- [Reborn art direction](docs/ART_DIRECTION_REBORN.md)
-- [Body plans](docs/BODY_PLANS.md)
-- [Motion design](docs/MOTION_DESIGN.md)
-- [Verification](docs/VERIFICATION.md)
-
-## Elsewhere
-
-- **Make → Land** で Rolling Field、Terraces、Hollow Land を選びます。起伏、粗さ、余白を調整して **Apply land** を押します。地形が住民の現在位置をふさぐ場合は、近くの安全な場所へ移します。構造物の密度は **Generate → Advanced** で調整できます。
-- **Camera** で **Fixed**、手動の **Landscape**、**Soft Follow**、**Observatory**、**Atlas** を選べます。
-- **Make → Atmosphere** から写真を選べます。**Backdrop** は遠景に写真を使い、**Atmosphere** は抽出色を地形・霧・照明に反映します。写真はブラウザ内だけで処理します。
-
-[Elsewhere の地形・カメラ・写真](docs/ELSEWHERE.md) · [Living Territories の行動設計](docs/LIVING_TERRITORIES.md)
-
-## GitHub Pages
-
-公開時はリポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。`Publish Vite application` は main の更新時にテスト・ビルド・配信ファイル検査を行い、生成された `dist/` のみを公開します。手動起動は Actions の同名ワークフローから可能です。ソースを直接公開する Jekyll / Deploy from a branch では TypeScript エントリーが動作しません。
-
-公開先: https://petandb-bot.github.io/the-quiet-specimens/ （初回デプロイ成功後）
+[Personal Land](docs/PERSONAL_LAND.md) · [World Composer](docs/WORLD_COMPOSER.md) · [World Generator](docs/WORLD_GENERATOR.md) · [World Styles](docs/WORLD_STYLES.md) · [Body Plans](docs/BODY_PLANS.md) · [Living Territories](docs/LIVING_TERRITORIES.md) · [Audio Ecology](docs/AUDIO_ECOLOGY.md) · [Roadmap](docs/ROADMAP.md) · [Verification](docs/VERIFICATION.md)

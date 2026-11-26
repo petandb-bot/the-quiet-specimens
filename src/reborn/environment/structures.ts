@@ -1,7 +1,7 @@
 import { clamp, random } from '../../core/random';
 import type { GroundPoint } from '../motion';
 import { newObject, objectLimit, transformObject } from '../world/document';
-import type { WorldDocument, WorldObject } from '../world/document';
+import type { ObjectKind, WorldDocument, WorldObject } from '../world/document';
 import type { LayerRecipe } from './settings';
 import { styles } from './styles';
 import type { Composition } from './styles';
@@ -39,10 +39,10 @@ export function keepAuthoredStructures(world: WorldDocument) {
   return world.objects.filter(item => item.layoutIndex === undefined || item.edited || links.has(item.id));
 }
 
-export function generateStructures(world: WorldDocument, recipe: LayerRecipe, density = .5): readonly WorldObject[] {
+export function generateStructures(world: WorldDocument, recipe: LayerRecipe, density = .5, study?: { pattern: Composition; count: number; scale: number; kinds?: readonly ObjectKind[] }): readonly WorldObject[] {
   const retained = keepAuthoredStructures(world);
   const excluded = new Set([...retained.map(item => item.id), ...world.suppressed]);
-  const { pattern, count: baseCount, scale, kinds, finishes } = styles[recipe.style].structures;
+  const { pattern, count: baseCount, scale, kinds, finishes } = { ...styles[recipe.style].structures, ...study };
   const count = Math.min(13, Math.round(baseCount * (.58 + density * .84)));
   const rng = random('world/structures/1/' + recipe.style + '/' + recipe.seed);
   const placed: WorldObject[] = [];

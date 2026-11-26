@@ -1,3 +1,5 @@
+import { reliefAt } from './environment/land-edits';
+import type { Grid } from './environment/land-edits';
 import { clamp, hashText, mix } from '../core/random';
 import { composeLandscape } from './composition';
 import type { Landmark, PointOfInterest } from './composition';
@@ -14,6 +16,8 @@ export interface Terrain {
   settings: Required<LandSettings>;
   height: (x: number, z: number) => number;
   slope: (x: number, z: number) => number;
+  baseHeight: (x: number, z: number) => number;
+  setRelief: (relief: Grid<number>) => void;
   anchors: GroundPoint[];
   landmarks: Landmark[];
   points: PointOfInterest[];
@@ -32,7 +36,7 @@ export function normalizeLand(input: LandSettings): Required<LandSettings> {
   };
 }
 
-export function makeTerrain(input: LandSettings): Terrain {
+export function makeTerrain(input: LandSettings, initialRelief: Grid<number> = {}): Terrain {
   const settings = normalizeLand(input);
   const seed = hashText('elsewhere/terrain/1/' + settings.seed);
   const corner = (x: number, z: number) => {
@@ -72,14 +76,29 @@ export function makeTerrain(input: LandSettings): Terrain {
     const xi = (x + landExtent) / gridSpacing, zi = (z + landExtent) / gridSpacing;
     return xi >= 0 && xi < side && zi >= 0 && zi < side ? vertices[zi * side + xi] : Math.fround(raw(x, z));
   };
-  const height = (x: number, z: number) => {
+  const triangles = (sample: (x: number, z: number) => number, x: number, z: number) => {
     const ix = Math.floor(x / gridSpacing) * gridSpacing, iz = Math.floor(z / gridSpacing) * gridSpacing;
     const u = (x - ix) / gridSpacing, v = (z - iz) / gridSpacing;
-    const a = vertex(ix, iz), b = vertex(ix, iz + gridSpacing), d = vertex(ix + gridSpacing, iz);
+    const a = sample(ix, iz), b = sample(ix, iz + gridSpacing), d = sample(ix + gridSpacing, iz);
     if (u + v <= 1) return a + (d - a) * u + (b - a) * v;
-    const c = vertex(ix + gridSpacing, iz + gridSpacing);
+    const c = sample(ix + gridSpacing, iz + gridSpacing);
     return c + (b - c) * (1 - u) + (d - c) * (1 - v);
   };
-  const slope = (x: number, z: number) => Math.hypot(height(x + .5, z) - height(x - .5, z), height(x, z + .5) - height(x, z - .5));
-  return { settings, height, slope, ...composeLandscape(settings, slope) };
+  let relief = initialRelief;
+  const sculpted = (x: number, z: number) => Math.fround(vertex(x, z) + reliefAt(relief, x, z));
+  const height = (x: number, z: number) => triangles(sculpted, x, z);
+  const baseHeight = (x: number, z: number) => triangles(vertex, x, z);
+  const setRelief = (next: Grid<number>) => { relief = next; };
+  const slope = (x: number, z: number) => {
+    const a = Math.floor(x), b = Math.floor(z);
+    if (reliefAt(relief, a, b) || reliefAt(relief, a + 1, b) || reliefAt(relief, a, b + 1) || reliefAt(relief, a + 1, b + 1)) {
+      const north = sculpted(a, b), east = sculpted(a + 1, b), west = sculpted(a, b + 1);
+      if (x - a + z - b <= 1) return Math.hypot(east - north, west - north);
+      const south = sculpted(a + 1, b + 1);
+      return Math.hypot(south - west, south - east);
+    }
+    // Keep the original metre-scale navigation gradient on untouched ground.
+    return Math.hypot(baseHeight(x + .5, z) - baseHeight(x - .5, z), baseHeight(x, z + .5) - baseHeight(x, z - .5));
+  };
+  return { settings, height, slope, baseHeight, setRelief, ...composeLandscape(settings, slope) };
 }
